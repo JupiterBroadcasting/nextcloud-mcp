@@ -98,13 +98,12 @@ version_files = [
 # Ignore tags from other components
 ignored_tag_formats = [
     "nextcloud-mcp-server-*",  # Helm chart tags
-    "astrolabe-v*",            # Astrolabe tags
 ]
 
-# Filter commits by scope (all scopes except helm and astrolabe)
+# Filter commits by scope (all scopes except helm)
 [tool.commitizen.customize]
-changelog_pattern = "^(feat|fix|docs|refactor|perf|test|build|ci|chore)(?!\\((?:helm|astrolabe)\\))(\\([^)]+\\))?(!)?:"
-schema_pattern = "^(feat|fix|docs|refactor|perf|test|build|ci|chore)(?!\\((?:helm|astrolabe)\\))(\\([^)]+\\))?(!)?:\\s.+"
+changelog_pattern = "^(feat|fix|docs|refactor|perf|test|build|ci|chore)(?!\\((?:helm)\\))(\\([^)]+\\))?(!)?:"
+schema_pattern = "^(feat|fix|docs|refactor|perf|test|build|ci|chore)(?!\\((?:helm)\\))(\\([^)]+\\))?(!)?:\\s.+"
 
 [tool.ruff.lint]
 extend-select = ["I"]
