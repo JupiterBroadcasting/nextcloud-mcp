@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable resource limits
 - Grafana dashboard annotations
 
+## nextcloud-mcp-server-0.57.49 (2026-02-16)
+
+### Refactor
+
+- remove stale astrolabe references from commitizen config
+- extract Astrolabe to separate repository
+
 ## nextcloud-mcp-server-0.57.48 (2026-02-15)
 
 ## nextcloud-mcp-server-0.57.47 (2026-02-15)
