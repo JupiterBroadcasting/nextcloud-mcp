@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable resource limits
 - Grafana dashboard annotations
 
+## nextcloud-mcp-server-0.57.51 (2026-02-16)
+
+### Feat
+
+- add self-signed SSL certificate support for Nextcloud connections
+
+### Fix
+
+- add type: ignore for caldav ssl_verify_cert parameter
+- convert CA bundle path to ssl.SSLContext to avoid httpx deprecation warning
+
 ## nextcloud-mcp-server-0.57.50 (2026-02-16)
 
 ## nextcloud-mcp-server-0.57.49 (2026-02-16)
