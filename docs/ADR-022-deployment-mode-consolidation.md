@@ -13,7 +13,7 @@ The Nextcloud MCP Server currently supports five distinct deployment modes (ADR-
 2. **Multi-User BasicAuth** - HTTP header credential pass-through
 3. **OAuth Single-Audience** - Multi-audience token validation
 4. **OAuth Token Exchange** - RFC 8693 delegation
-5. **Smithery Stateless** - Session URL parameters
+5. **Smithery Stateless** - Session URL parameters (free tier sunsetting March 2026)
 
 This complexity creates several problems:
 
@@ -1021,6 +1021,100 @@ AUDIT_EVENTS = [
 ]
 ```
 
+### App Password Lifecycle Management
+
+App passwords acquired via Login Flow v2 require lifecycle management to handle revocation, expiry, and session cleanup.
+
+#### Stale/Revoked Password Detection
+
+When Nextcloud API calls return HTTP 401 using a stored app password, the server must distinguish credential failure from transient errors and trigger re-provisioning:
+
+```python
+async def handle_api_response(response: httpx.Response, user_id: str) -> None:
+    """Detect revoked/invalid app passwords and trigger re-provisioning."""
+
+    if response.status_code == 401:
+        # App password was revoked or invalidated by Nextcloud
+        logger.warning(f"App password invalid for user {user_id}, marking for re-provisioning")
+        await storage.mark_app_password_invalid(user_id)
+        await audit_log("app_password_invalidated", user_id=user_id)
+
+        raise ProvisioningRequiredError(
+            "Your Nextcloud access has been revoked or expired. "
+            "Call nc_auth_provision_access to re-authorize."
+        )
+
+    # Transient errors (5xx, timeouts) do NOT invalidate the password
+    if response.status_code >= 500:
+        raise NextcloudServerError(f"Nextcloud returned {response.status_code}")
+```
+
+**Key distinction**: Only HTTP 401 marks the password as invalid. Server errors (5xx) and network timeouts are transient and should be retried without invalidating credentials.
+
+#### Login Flow Session Cleanup
+
+Abandoned Login Flow v2 sessions (where the user never completes browser authorization) accumulate in the `login_flow_sessions` table. A background cleanup task removes expired rows:
+
+```python
+async def cleanup_expired_login_flow_sessions() -> int:
+    """Remove expired login flow sessions. Returns count of rows deleted."""
+    result = await storage.delete_expired_login_flow_sessions(
+        cutoff=int(time.time())
+    )
+    if result > 0:
+        logger.info(f"Cleaned up {result} expired login flow sessions")
+    return result
+```
+
+**Configuration:**
+
+```bash
+# Login flow session cleanup (environment variables)
+LOGIN_FLOW_CLEANUP_INTERVAL=3600  # Seconds between cleanup runs (default: 1 hour)
+```
+
+Sessions expire naturally via the `expires_at` column (set to 10 minutes after initiation). The cleanup task is defense-in-depth to prevent unbounded table growth.
+
+#### App Password Rotation (Optional)
+
+Administrators can configure an optional rotation policy that prompts users to re-provision after a configurable age:
+
+```bash
+# App password rotation (environment variable)
+APP_PASSWORD_MAX_AGE_DAYS=0  # 0 = disabled (default). Set to e.g. 90 for 90-day rotation.
+```
+
+When enabled, the server checks password age on each request:
+
+```python
+async def check_app_password_age(user_id: str) -> None:
+    """Check if app password exceeds max age and trigger rotation if needed."""
+    settings = get_settings()
+    if settings.app_password_max_age_days == 0:
+        return  # Rotation disabled
+
+    app_password_data = await storage.get_app_password_with_scopes(user_id)
+    if app_password_data is None:
+        return
+
+    age_days = (time.time() - app_password_data["created_at"]) / 86400
+    if age_days > settings.app_password_max_age_days:
+        logger.info(f"App password for user {user_id} exceeded max age ({age_days:.0f} days)")
+        await audit_log("app_password_rotation_triggered", user_id=user_id, age_days=age_days)
+
+        # Invalidate old password, same path as revocation
+        await storage.mark_app_password_invalid(user_id)
+        raise ProvisioningRequiredError(
+            f"Your Nextcloud access credentials have expired (>{settings.app_password_max_age_days} days). "
+            "Call nc_auth_provision_access to re-authorize."
+        )
+```
+
+**Design notes:**
+- Rotation reuses the same re-provisioning path as revoked password detection
+- The old app password is invalidated when the user completes re-provisioning (not before), avoiding a gap in access
+- Audit log records rotation events for compliance tracking
+
 ## Migration Path
 
 ### Modes Being Removed
@@ -1031,7 +1125,7 @@ AUDIT_EVENTS = [
 | Multi-User BasicAuth | Mode 2 (Multi-User) | Credential pass-through is a security anti-pattern |
 | OAuth Single-Audience | Mode 2 (Multi-User) | Requires upstream Nextcloud patches not planned for adoption |
 | OAuth Token Exchange | Mode 2 (Multi-User) | Complex IdP configuration, limited adoption |
-| Smithery Stateless | **DROPPED** | Third-party hosting conflicts with privacy goals; use self-hosted alternatives |
+| Smithery Stateless | **DROPPED** | Free tier sunsetting March 2026; not cost-justified for a self-hostable server. Third-party hosting also conflicts with privacy goals |
 
 ### Phase 1: Add Login Flow v2 Support (v0.65)
 
@@ -1153,13 +1247,11 @@ def detect_deployment_mode() -> AuthMode:
 
 ### Alternative 5: Keep Smithery/Third-Party Hosted Mode
 
-**Rejected**: The MCP server prioritizes privacy and user data control. Third-party hosted deployments introduce trust and data residency concerns that conflict with these goals.
+**Rejected**: Smithery is sunsetting its free tier in March 2026, making continued support a paid hosting cost for a server explicitly designed to be self-hosted. Beyond the cost issue, third-party hosted deployments route user data through infrastructure outside the user's control, conflicting with the project's privacy-first design.
 
 **Recommendation for users:**
-- **Individual users**: Use Single-User mode with self-hosted deployment
-- **Organizations**: Use Multi-User mode with organizational infrastructure
-
-Users who require managed hosting should evaluate the privacy implications and consider self-hosting alternatives (Docker, Kubernetes, VM-based deployments).
+- **Individual users**: Use Single-User mode with self-hosted deployment (Docker, VM, bare metal)
+- **Organizations**: Use Multi-User mode with organizational infrastructure (Kubernetes, Docker Compose)
 
 ### Alternative 6: Wait for Nextcloud OAuth Bearer Token Support
 
