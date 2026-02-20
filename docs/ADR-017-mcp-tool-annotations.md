@@ -342,7 +342,7 @@ Less frequently used:
 ### Mitigations
 - **Incorrect annotations**: Add tests validating behavior matches hints
 - **Maintenance burden**: Add to code review checklist and tool template
-- **Documentation**: Update CLAUDE.md with annotation guidelines
+- **Documentation**: Update AGENTS.md with annotation guidelines
 
 ## Examples
 
@@ -470,7 +470,7 @@ def test_notes_tools_have_annotations():
 
 ### Documentation Updates
 - Update README tool listings with new titles
-- Add annotation guidelines to CLAUDE.md
+- Add annotation guidelines to AGENTS.md
 - Include examples in developer documentation
 
 ## Resolved Questions

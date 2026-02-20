@@ -460,7 +460,7 @@ def reciprocal_rank_fusion(
 3. Document weight tuning recommendations
 4. Add end-to-end tests (MCP + viz pane)
 5. Performance benchmarks for each algorithm
-6. Update CLAUDE.md with search patterns
+6. Update AGENTS.md with search patterns
 
 ## Consequences
 

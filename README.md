@@ -7,222 +7,243 @@
 [![Docker Image](https://img.shields.io/badge/docker-ghcr.io/cbcoutinho/nextcloud--mcp--server-blue)](https://github.com/cbcoutinho/nextcloud-mcp-server/pkgs/container/nextcloud-mcp-server)
 [![smithery badge](https://smithery.ai/badge/@cbcoutinho/nextcloud-mcp-server)](https://smithery.ai/server/@cbcoutinho/nextcloud-mcp-server)
 
-**A production-ready MCP server that connects AI assistants to your Nextcloud instance.**
+Production-ready MCP server that connects AI assistants to your Nextcloud instance.
 
-Enable Large Language Models like Claude, GPT, and Gemini to interact with your Nextcloud data through a secure API. Create notes, manage calendars, organize contacts, work with files, and more - all through natural language conversations.
+Use Claude, GPT, Gemini, and other MCP-compatible clients to create notes, manage calendars, work with contacts, and browse files through natural language workflows.
 
-This is a **dedicated standalone MCP server** designed for external MCP clients like Claude Code and IDEs. It runs independently of Nextcloud (Docker, VM, Kubernetes, or local) and provides deep CRUD operations across Nextcloud apps.
+## Quick Start (NixOS First)
 
-> [!NOTE]
-> **Looking for AI features inside Nextcloud?** Nextcloud also provides [Context Agent](https://github.com/nextcloud/context_agent), which powers the Assistant app and runs as an ExApp inside Nextcloud. See [docs/comparison-context-agent.md](docs/comparison-context-agent.md) for a detailed comparison of use cases.
+This repository now includes:
 
-## Quick Start
+- `flake.nix` for a dev shell and runnable app
+- `nixosModules.default` for service deployment on NixOS
+- `tools/nextcloud-mcp-server.service` as a generic systemd template
 
-The fastest way to get started is via [Smithery](https://smithery.ai/server/@cbcoutinho/nextcloud-mcp-server) - no Docker or self-hosting required:
+### 1) Add this repository as an input in your system flake
 
-1. Visit the [Smithery marketplace page](https://smithery.ai/server/@cbcoutinho/nextcloud-mcp-server)
-2. Click "Deploy" and configure:
-   - **Nextcloud URL**: Your Nextcloud instance (e.g., `https://cloud.example.com`)
-   - **Username**: Your Nextcloud username
-   - **App Password**: Generate one in Nextcloud → Settings → Security → Devices & sessions
+```nix
+{
+  inputs.nextcloud-mcp-server.url = "github:YOUR_ORG/nextcloud-mcp-server";
+}
+```
 
-> [!NOTE]
-> Smithery runs in stateless mode without semantic search. For full features, use [Docker](#docker-self-hosted) or see [ADR-016](docs/ADR-016-smithery-stateless-deployment.md).
+### 2) Enable the module in your NixOS configuration
 
-## Docker (Self-Hosted)
+```nix
+{
+  imports = [ inputs.nextcloud-mcp-server.nixosModules.default ];
 
-For full features including semantic search, run with Docker:
+  services.nextcloud-mcp-server = {
+    enable = true;
+    workingDirectory = "/srv/nextcloud-mcp-server";
+    environmentFile = "/etc/nextcloud-mcp-server.env";
+    host = "127.0.0.1";
+    port = 8000;
+    transport = "streamable-http";
+    metricsPort = 9090;
+  };
+}
+```
+
+### 3) Create the environment file with Nextcloud credentials
 
 ```bash
-# 1. Create a minimal configuration
+sudo install -m 0600 -o root -g root /dev/null /etc/nextcloud-mcp-server.env
+sudo tee /etc/nextcloud-mcp-server.env >/dev/null <<'EOF'
+NEXTCLOUD_HOST=https://cloud.example.com
+NEXTCLOUD_USERNAME=your_nextcloud_username
+NEXTCLOUD_PASSWORD=your_nextcloud_app_password
+EOF
+```
+
+### 4) Deploy and verify
+
+```bash
+sudo nixos-rebuild switch
+systemctl --no-pager --full status nextcloud-mcp-server
+curl -fsS http://127.0.0.1:8000/health/ready
+```
+
+### 5) Connect your MCP client
+
+- `http://127.0.0.1:8000/mcp` for `streamable-http`
+- `http://127.0.0.1:8000/sse` for SSE transport (if configured)
+
+## How Credentials Are Passed
+
+The server reads credentials from environment variables:
+
+- `NEXTCLOUD_HOST`
+- `NEXTCLOUD_USERNAME`
+- `NEXTCLOUD_PASSWORD`
+
+On NixOS, the recommended method is `services.nextcloud-mcp-server.environmentFile`.
+
+Security guidance:
+
+- Use an app password from Nextcloud, not your interactive account password.
+- Keep env files outside git (for example, `/etc/nextcloud-mcp-server.env`).
+- Restrict file permissions to `0600`.
+- Rotate app passwords if they are ever exposed.
+- Do not hardcode credentials in `configuration.nix`, scripts, commit history, or screenshots.
+
+Optional environment variables:
+
+- `TOKEN_ENCRYPTION_KEY` (recommended for encrypted token persistence features)
+- `TOKEN_STORAGE_DB` (default is `/tmp/tokens.db`, override for persistent storage)
+- `METRICS_PORT` (default `9090`)
+
+## LLM Agents: NixOS Install Runbook
+
+Use this section when an agentic LLM session is asked to install and configure this MCP server on a NixOS host.
+
+### Inputs the agent should request first
+
+- Nextcloud URL
+- Nextcloud username
+- Nextcloud app password
+- Desired MCP bind host and port
+- Whether reverse proxy/TLS is required
+
+### Agent workflow checklist
+
+1. Confirm host is NixOS and flake-based.
+2. Add this repo as a flake input.
+3. Import `nixosModules.default`.
+4. Configure `services.nextcloud-mcp-server`.
+5. Create `/etc/nextcloud-mcp-server.env` with `0600` permissions.
+6. Apply config with `nixos-rebuild switch`.
+7. Validate service health endpoint.
+8. Run an MCP smoke test (list a directory, read a file).
+
+### Command sequence for an agent session
+
+```bash
+sudo install -d -m 0755 /srv/nextcloud-mcp-server
+sudo install -m 0600 -o root -g root /dev/null /etc/nextcloud-mcp-server.env
+sudoedit /etc/nextcloud-mcp-server.env
+sudo nixos-rebuild switch
+systemctl --no-pager --full status nextcloud-mcp-server
+curl -fsS http://127.0.0.1:8000/health/ready
+```
+
+### Agent completion criteria
+
+A successful agent run should return:
+
+- Service state (`active (running)`)
+- Health check payload from `/health/ready`
+- MCP endpoint URL
+- Any required follow-up (reverse proxy, firewall, OAuth mode, backups)
+
+## Alternative Quick Starts
+
+### Docker (Self-Hosted)
+
+```bash
 cat > .env << EOF
 NEXTCLOUD_HOST=https://your.nextcloud.instance.com
 NEXTCLOUD_USERNAME=your_username
 NEXTCLOUD_PASSWORD=your_app_password
 EOF
 
-# 2. Start the server
 docker run -p 127.0.0.1:8000:8000 --env-file .env --rm \
   ghcr.io/cbcoutinho/nextcloud-mcp-server:latest
 
-# 3. Test the connection
 curl http://127.0.0.1:8000/health/ready
-
-# 4. Connect to the endpoint
-http://127.0.0.1:8000/sse
-
-# Or with --transport streamable-http
-http://127.0.0.1:8000/mcp
 ```
 
-**Next Steps:**
-- Connect your MCP client (Claude Desktop, IDEs, `mcp dev`, etc.)
-- See [docs/installation.md](docs/installation.md) for other deployment options (local, Kubernetes)
+### Smithery (Managed)
+
+Use [Smithery](https://smithery.ai/server/@cbcoutinho/nextcloud-mcp-server) for hosted setup.
+
+> [!NOTE]
+> Smithery runs in stateless mode without full semantic-search infrastructure by default.
 
 ## Key Features
 
-- **90+ MCP Tools** - Comprehensive API coverage across 8 Nextcloud apps
-- **MCP Resources** - Structured data URIs for browsing Nextcloud data
-- **Semantic Search (Experimental)** - Optional vector-powered search for Notes, Files, News items, and Deck cards (requires Qdrant + Ollama)
-- **Document Processing** - OCR and text extraction from PDFs, DOCX, images with progress notifications
-- **Flexible Deployment** - Docker, Kubernetes (Helm), VM, or local installation
-- **Production-Ready Auth** - Basic Auth with app passwords (recommended) or OAuth2/OIDC (experimental)
-- **Multiple Transports** - SSE, HTTP, and streamable-http support
+- 90+ MCP tools across major Nextcloud apps
+- MCP resources for structured URI-based data access
+- Semantic search (experimental) with optional vector infrastructure
+- Document processing (OCR/text extraction for supported files)
+- Flexible deployment: NixOS, Docker, Kubernetes, VM, local
+- Authentication modes: Basic Auth (recommended), OAuth/OIDC (experimental)
+- Multiple transports: `streamable-http`, HTTP, SSE
 
 ## Supported Apps
 
 | App | Tools | Capabilities |
 |-----|-------|--------------|
 | **Notes** | 7 | Full CRUD, keyword search, semantic search |
-| **Calendar** | 20+ | Events, todos (tasks), recurring events, attendees, availability |
-| **Contacts** | 8 | Full CardDAV support, address books |
-| **Files (WebDAV)** | 12 | Filesystem access, OCR/document processing |
+| **Calendar** | 20+ | Events, todos, recurrence, attendees |
+| **Contacts** | 8 | CardDAV operations and address books |
+| **Files (WebDAV)** | 12 | File/folder operations and document processing |
 | **Deck** | 15 | Boards, stacks, cards, labels, assignments |
-| **Cookbook** | 13 | Recipe management, URL import (schema.org) |
+| **Cookbook** | 13 | Recipe management and URL import |
 | **Tables** | 5 | Row operations on Nextcloud Tables |
-| **Sharing** | 10+ | Create and manage shares |
-| **Semantic Search** | 2+ | Vector search for Notes, Files, News items, and Deck cards (experimental, opt-in, requires infrastructure) |
-
-Want to see another Nextcloud app supported? [Open an issue](https://github.com/cbcoutinho/nextcloud-mcp-server/issues) or contribute a pull request!
+| **Sharing** | 10+ | Share create/list/manage |
 
 ## Authentication
 
+Basic Auth with app passwords is recommended for production single-user setups.
+
 > [!IMPORTANT]
-> **OAuth2/OIDC is experimental** and requires a manual patch to the `user_oidc` app:
-> - **Required patch**: Bearer token support ([issue #1221](https://github.com/nextcloud/user_oidc/issues/1221))
-> - **Impact**: Without the patch, most app-specific APIs fail with 401 errors
-> - **Recommendation**: Use Basic Auth for production until upstream patches are merged
->
-> See [docs/oauth-upstream-status.md](docs/oauth-upstream-status.md) for patch status and workarounds.
-
-**Recommended:** Basic Auth with app-specific passwords provides secure, production-ready authentication. See [docs/authentication.md](docs/authentication.md) for setup details and OAuth configuration.
-
-### Authentication Modes
-
-The server supports three authentication modes:
-
-**Single-User Mode (BasicAuth):**
-- One set of credentials shared by all MCP clients
-- Simple setup: username + app password in environment variables
-- All clients access Nextcloud as the same user
-- Best for: Personal use, development, single-user deployments
-
-**Multi-User Mode (OAuth):**
-- Each MCP client authenticates separately with their own Nextcloud account
-- Per-user scopes and permissions (clients only see tools they're authorized for)
-- More secure: tokens expire, credentials never shared with server
-- Best for: Teams, multi-user deployments, production environments with multiple users
-
-**Hybrid Mode (Multi-User BasicAuth + OAuth):**
-- MCP clients use BasicAuth (simple, stateless)
-- Admin operations use OAuth (webhooks, background sync)
-- Best for: Nextcloud deployments with admin-managed webhooks and semantic search
-- Requires: `ENABLE_MULTI_USER_BASIC_AUTH=true` + `ENABLE_OFFLINE_ACCESS=true`
-
-See [docs/authentication.md](docs/authentication.md) for detailed setup instructions.
+> OAuth2/OIDC support is experimental and depends on upstream `user_oidc` behavior.
+> See [docs/oauth-upstream-status.md](docs/oauth-upstream-status.md) and [docs/authentication.md](docs/authentication.md).
 
 ## Semantic Search
 
-The server provides an experimental RAG pipeline to enable _Semantic Search_ that enables MCP clients to find information in Nextcloud based on **meaning** rather than just keywords. Instead of matching "machine learning" only when those exact words appear, it understands that "neural networks," "AI models," and "deep learning" are semantically related concepts.
+Semantic search is experimental and opt-in:
 
-**Example:**
-- **Keyword search**: Query "car" only finds notes containing "car"
-- **Semantic search**: Query "car" also finds notes about "automobile," "vehicle," "sedan," "transportation"
+- Disabled by default (`ENABLE_SEMANTIC_SEARCH=false`)
+- Requires additional infrastructure (for example Qdrant plus embedding provider)
+- Supports semantic retrieval workflows for supported apps
 
-This enables natural language queries and helps discover related content across your Nextcloud notes.
-
-> [!NOTE]
-> **Semantic Search is experimental and opt-in:**
-> - Disabled by default (`ENABLE_SEMANTIC_SEARCH=false`)
-> - Currently supports Notes app only (multi-app support planned)
-> - Requires additional infrastructure: vector database + embedding service
-> - Answer generation (`nc_semantic_search_answer`) requires MCP client sampling support
->
-> See [docs/semantic-search-architecture.md](docs/semantic-search-architecture.md) for architecture details and [docs/configuration.md](docs/configuration.md) for setup instructions.
+See [docs/semantic-search-architecture.md](docs/semantic-search-architecture.md) and [docs/configuration.md](docs/configuration.md).
 
 ## Documentation
 
 ### Getting Started
-- **[Installation](docs/installation.md)** - Docker, Kubernetes, local, or VM deployment
+
+- **[Installation](docs/installation.md)** - Docker, Kubernetes, local, VM
+- **[NixOS and systemd](docs/nixos-systemd.md)** - Flake/module usage and service templates
 - **[Configuration](docs/configuration.md)** - Environment variables and advanced options
 - **[Authentication](docs/authentication.md)** - Basic Auth vs OAuth2/OIDC setup
-- **[Running the Server](docs/running.md)** - Start, manage, and troubleshoot
+- **[Running the Server](docs/running.md)** - Start, manage, troubleshoot
 
 ### Features
+
 - **[App Documentation](docs/)** - Notes, Calendar, Contacts, WebDAV, Deck, Cookbook, Tables
-- **[Document Processing](docs/configuration.md#document-processing)** - OCR and text extraction setup
-- **[Semantic Search Architecture](docs/semantic-search-architecture.md)** - Experimental vector search (Notes, Files, News items, Deck cards; opt-in)
-- **[Vector Sync UI Guide](docs/user-guide/vector-sync-ui.md)** - Browser interface for semantic search visualization and testing
+- **[Document Processing](docs/configuration.md#document-processing)** - OCR/text extraction setup
+- **[Semantic Search Architecture](docs/semantic-search-architecture.md)** - Vector search architecture
+- **[Vector Sync UI Guide](docs/user-guide/vector-sync-ui.md)** - Browser UI for semantic sync and test
 
 ### Advanced Topics
-- **[OAuth Architecture](docs/oauth-architecture.md)** - How OAuth works (experimental)
-- **[OAuth Quick Start](docs/quickstart-oauth.md)** - 5-minute OAuth setup
-- **[OAuth Setup Guide](docs/oauth-setup.md)** - Detailed OAuth configuration
-- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and solutions
-- **[Comparison with Context Agent](docs/comparison-context-agent.md)** - When to use each approach
 
-## Examples
-
-### Create a Note
-```
-AI: "Create a note called 'Meeting Notes' with today's agenda"
-→ Uses nc_notes_create_note tool
-```
-
-### Import Recipes
-```
-AI: "Import the recipe from https://www.example.com/recipe/chocolate-cake"
-→ Uses nc_cookbook_import_recipe tool with schema.org metadata extraction
-```
-
-### Schedule Meetings
-```
-AI: "Schedule a team meeting for next Tuesday at 2pm"
-→ Uses nc_calendar_create_event tool
-```
-
-### Manage Files
-```
-AI: "Create a folder called 'Project X' and move all PDFs there"
-→ Uses nc_webdav_create_directory and nc_webdav_move tools
-```
-
-### Semantic Search (Experimental, Opt-in)
-```
-AI: "Find notes related to machine learning concepts"
-→ Uses nc_semantic_search to find semantically similar notes (requires Qdrant + Ollama setup)
-```
-
-**Note:** For AI-generated answers with citations, use `nc_semantic_search_answer` (requires MCP client with sampling support).
+- **[OAuth Architecture](docs/oauth-architecture.md)** - OAuth design and flows
+- **[OAuth Quick Start](docs/quickstart-oauth.md)** - Fast OAuth bootstrap
+- **[OAuth Setup Guide](docs/oauth-setup.md)** - Full OAuth configuration
+- **[Troubleshooting](docs/troubleshooting.md)** - Common issues and fixes
+- **[Comparison with Context Agent](docs/comparison-context-agent.md)** - Use-case comparison
 
 ## Contributing
 
-Contributions are welcome!
-
 - Report bugs or request features: [GitHub Issues](https://github.com/cbcoutinho/nextcloud-mcp-server/issues)
 - Submit improvements: [Pull Requests](https://github.com/cbcoutinho/nextcloud-mcp-server/pulls)
-- Development guidelines: [CLAUDE.md](CLAUDE.md)
+- Development workflow notes: [AGENTS.md](AGENTS.md)
 
 ## Security
 
 [![MseeP.ai Security Assessment](https://mseep.net/pr/cbcoutinho-nextcloud-mcp-server-badge.png)](https://mseep.ai/app/cbcoutinho-nextcloud-mcp-server)
 
-This project takes security seriously:
-- Production-ready Basic Auth with app-specific passwords
-- OAuth2/OIDC support (experimental, requires upstream patches)
-- Per-user access tokens
-- No credential storage in OAuth mode
-- Regular security assessments
-
-Found a security issue? Please report it privately to the maintainers.
+- Use app passwords for Basic Auth deployments.
+- Keep credential files out of git.
+- Prefer least privilege and scoped credentials.
+- Report security issues privately to maintainers.
 
 ## License
 
-This project is licensed under the AGPL-3.0 License. See [LICENSE](./LICENSE) for details.
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=cbcoutinho/nextcloud-mcp-server&type=Date)](https://www.star-history.com/#cbcoutinho/nextcloud-mcp-server&Date)
+AGPL-3.0. See [LICENSE](./LICENSE).
 
 ## References
 

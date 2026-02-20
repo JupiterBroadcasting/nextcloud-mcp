@@ -640,7 +640,7 @@ __all__ = [
 - [ ] Write unit tests with mocked sampling (`tests/unit/server/test_semantic.py`)
 - [ ] Create integration tests (`tests/integration/test_sampling.py`)
 - [ ] Update `README.md` with new tool documentation in dedicated Semantic Search section
-- [ ] Update `CLAUDE.md` with sampling pattern guidance
+- [ ] Update `AGENTS.md` with sampling pattern guidance
 - [ ] Test with MCP client supporting sampling (Claude Desktop, MCP Inspector with callbacks)
 - [ ] Document client requirements and fallback behavior
 - [ ] Update oauth-architecture.md to add semantic:read scope

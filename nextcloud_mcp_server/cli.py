@@ -17,6 +17,8 @@ from nextcloud_mcp_server.observability import get_uvicorn_logging_config
 
 from .app import get_app
 
+DEFAULT_TOKEN_STORAGE_DB = "/tmp/tokens.db"
+
 
 @click.command()
 @click.option(
@@ -271,7 +273,7 @@ def db():
     "--database-path",
     "-d",
     envvar="TOKEN_STORAGE_DB",
-    default="/app/data/tokens.db",
+    default=DEFAULT_TOKEN_STORAGE_DB,
     show_default=True,
     help="Path to token storage database (can also use TOKEN_STORAGE_DB env var)",
 )
@@ -310,7 +312,7 @@ def upgrade(database_path: str, revision: str):
     "--database-path",
     "-d",
     envvar="TOKEN_STORAGE_DB",
-    default="/app/data/tokens.db",
+    default=DEFAULT_TOKEN_STORAGE_DB,
     show_default=True,
     help="Path to token storage database",
 )
@@ -354,7 +356,7 @@ def downgrade(database_path: str, revision: str):
     "--database-path",
     "-d",
     envvar="TOKEN_STORAGE_DB",
-    default="/app/data/tokens.db",
+    default=DEFAULT_TOKEN_STORAGE_DB,
     show_default=True,
     help="Path to token storage database",
 )
@@ -387,7 +389,7 @@ def current(database_path: str):
     "--database-path",
     "-d",
     envvar="TOKEN_STORAGE_DB",
-    default="/app/data/tokens.db",
+    default=DEFAULT_TOKEN_STORAGE_DB,
     show_default=True,
     help="Path to token storage database",
 )

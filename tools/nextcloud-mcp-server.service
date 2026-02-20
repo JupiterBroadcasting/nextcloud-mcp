@@ -1,0 +1,24 @@
+[Unit]
+Description=Nextcloud MCP Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nextcloud-mcp
+Group=nextcloud-mcp
+WorkingDirectory=/srv/nextcloud-mcp-server
+EnvironmentFile=/etc/nextcloud-mcp-server.env
+Environment=TOKEN_STORAGE_DB=/var/lib/nextcloud-mcp-server/tokens.db
+Environment=METRICS_PORT=9090
+ExecStart=/usr/bin/env uv run nextcloud-mcp-server run --transport streamable-http --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/nextcloud-mcp-server
+
+[Install]
+WantedBy=multi-user.target

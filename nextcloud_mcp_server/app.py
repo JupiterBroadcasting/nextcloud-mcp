@@ -1212,9 +1212,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
         and settings.vector_sync_enabled
         and settings.enable_background_operations
     ):
-        print(
-            f"DEBUG: Multi-user BasicAuth mode detected, vector_sync={settings.vector_sync_enabled}, background_operations={settings.enable_background_operations}"
-        )
         logger.info(
             "Multi-user BasicAuth with vector sync - checking for OAuth/app password credentials"
         )
@@ -1224,12 +1221,10 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
         static_client_secret = os.getenv("NEXTCLOUD_OIDC_CLIENT_SECRET")
 
         if static_client_id and static_client_secret:
-            print("DEBUG: Using static OAuth credentials")
             logger.info("Using static OAuth credentials for background operations")
             multi_user_basic_oauth_creds = (static_client_id, static_client_secret)
         else:
             # Perform DCR before uvicorn starts (same lifecycle as OAuth modes)
-            print("DEBUG: No static credentials, attempting DCR...")
             logger.info(
                 "OAuth credentials not configured - attempting Dynamic Client Registration..."
             )
@@ -1366,6 +1361,12 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
                         await oauth_client.close()
                     except Exception as e:
                         logger.warning(f"Error closing OAuth client: {e}")
+                # Token verifier cleanup (closes underlying httpx connection pool)
+                if token_verifier and hasattr(token_verifier, "close"):
+                    try:
+                        await token_verifier.close()
+                    except Exception as e:
+                        logger.warning(f"Error closing token verifier: {e}")
                 logger.info("MCP server shutdown complete")
 
         mcp = FastMCP(
@@ -2459,11 +2460,7 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
         auth_header = request.headers.get("authorization")
         if request.url.path.startswith("/mcp"):
             if auth_header:
-                # Log first 50 chars of token for debugging
-                token_preview = (
-                    auth_header[:50] + "..." if len(auth_header) > 50 else auth_header
-                )
-                logger.info(f"🔑 /mcp request with Authorization: {token_preview}")
+                logger.debug("🔑 /mcp request received with Authorization header")
             else:
                 # Only warn about missing Authorization in OAuth mode
                 # In BasicAuth mode, /mcp requests without Authorization are expected

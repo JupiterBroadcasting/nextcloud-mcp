@@ -89,11 +89,11 @@ class NotesClient(BaseNextcloudClient):
     ) -> Dict[str, Any]:
         """Create a new note."""
         body = {}
-        if title:
+        if title is not None:
             body["title"] = title
-        if content:
+        if content is not None:
             body["content"] = content
-        if category:
+        if category is not None:
             body["category"] = category
 
         response = await self._make_request(
@@ -125,11 +125,11 @@ class NotesClient(BaseNextcloudClient):
 
         # Prepare update body
         body = {}
-        if title:
+        if title is not None:
             body["title"] = title
-        if content:
+        if content is not None:
             body["content"] = content
-        if category:
+        if category is not None:
             body["category"] = category
 
         logger.info(

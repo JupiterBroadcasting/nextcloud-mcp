@@ -43,6 +43,7 @@ from nextcloud_mcp_server.migrations import stamp_database, upgrade_database
 from nextcloud_mcp_server.observability.metrics import record_db_operation
 
 logger = logging.getLogger(__name__)
+DEFAULT_TOKEN_STORAGE_DB = "/tmp/tokens.db"
 
 
 class RefreshTokenStorage:
@@ -82,7 +83,7 @@ class RefreshTokenStorage:
         Create storage instance from environment variables.
 
         Environment variables:
-            TOKEN_STORAGE_DB: Path to database file (default: /app/data/tokens.db)
+            TOKEN_STORAGE_DB: Path to database file (default: /tmp/tokens.db)
             TOKEN_ENCRYPTION_KEY: Optional base64-encoded Fernet key (required for token storage)
 
         Returns:
@@ -92,7 +93,7 @@ class RefreshTokenStorage:
             If TOKEN_ENCRYPTION_KEY is not set, token storage operations will fail,
             but webhook tracking will still work.
         """
-        db_path = os.getenv("TOKEN_STORAGE_DB", "/app/data/tokens.db")
+        db_path = os.getenv("TOKEN_STORAGE_DB", DEFAULT_TOKEN_STORAGE_DB)
         encryption_key_b64 = os.getenv("TOKEN_ENCRYPTION_KEY")
 
         encryption_key = None
