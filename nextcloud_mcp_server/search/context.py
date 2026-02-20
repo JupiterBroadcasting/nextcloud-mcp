@@ -9,8 +9,12 @@ from dataclasses import dataclass
 
 import pymupdf
 import pymupdf4llm
+from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from nextcloud_mcp_server.client import NextcloudClient
+from nextcloud_mcp_server.config import get_settings
+from nextcloud_mcp_server.vector.html_processor import html_to_markdown
+from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +38,6 @@ async def _get_chunk_from_qdrant(
         Full chunk text from Qdrant excerpt field, or None if not found
     """
     try:
-        from qdrant_client.models import FieldCondition, Filter, MatchValue
-
-        from nextcloud_mcp_server.config import get_settings
-        from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
-
         qdrant_client = await get_qdrant_client()
         settings = get_settings()
 
@@ -104,11 +103,6 @@ async def _get_chunk_by_index_from_qdrant(
         Full chunk text from Qdrant excerpt field, or None if not found
     """
     try:
-        from qdrant_client.models import FieldCondition, Filter, MatchValue
-
-        from nextcloud_mcp_server.config import get_settings
-        from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
-
         qdrant_client = await get_qdrant_client()
         settings = get_settings()
 
@@ -165,11 +159,6 @@ async def _get_file_path_from_qdrant(
         File path string, or None if not found in Qdrant
     """
     try:
-        from qdrant_client.models import FieldCondition, Filter, MatchValue
-
-        from nextcloud_mcp_server.config import get_settings
-        from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
-
         qdrant_client = await get_qdrant_client()
         settings = get_settings()
 
@@ -225,11 +214,6 @@ async def _get_deck_metadata_from_qdrant(
         Dictionary with board_id and stack_id, or None if not found
     """
     try:
-        from qdrant_client.models import FieldCondition, Filter, MatchValue
-
-        from nextcloud_mcp_server.config import get_settings
-        from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
-
         qdrant_client = await get_qdrant_client()
         settings = get_settings()
 
@@ -355,8 +339,6 @@ async def get_chunk_with_context(
 
             # Fetch adjacent chunks for context expansion
             # Get chunk overlap from config to remove duplicate text
-            from nextcloud_mcp_server.config import get_settings
-
             settings = get_settings()
             chunk_overlap = settings.document_chunk_overlap
 
@@ -587,8 +569,6 @@ async def _fetch_document_text(
                 return None
         elif doc_type == "news_item":
             # Fetch news item by ID
-            from nextcloud_mcp_server.vector.html_processor import html_to_markdown
-
             item = await nc_client.news.get_item(int(doc_id))
             # Reconstruct full content as indexed: title + source + URL + body
             # This ensures chunk offsets align with indexed content structure

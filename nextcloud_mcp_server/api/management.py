@@ -20,8 +20,14 @@ import time
 from importlib.metadata import version
 from typing import Any
 
+from qdrant_client.models import Filter
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+
+from nextcloud_mcp_server.config import get_settings
+from nextcloud_mcp_server.config_validators import AuthMode, detect_auth_mode
+from nextcloud_mcp_server.vector.placeholder import get_placeholder_filter
+from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
 
 logger = logging.getLogger(__name__)
 
@@ -196,16 +202,12 @@ async def get_server_status(request: Request) -> JSONResponse:
     # Public endpoint - no authentication required
 
     # Get configuration
-    from nextcloud_mcp_server.config import get_settings
-
     settings = get_settings()
 
     # Calculate uptime
     uptime_seconds = int(time.time() - _server_start_time)
 
     # Determine auth mode using proper mode detection
-    from nextcloud_mcp_server.config_validators import AuthMode, detect_auth_mode
-
     mode = detect_auth_mode(settings)
 
     # Map deployment mode to auth_mode for API response
@@ -266,8 +268,6 @@ async def get_vector_sync_status(request: Request) -> JSONResponse:
     """
     # Public endpoint - no authentication required
 
-    from nextcloud_mcp_server.config import get_settings
-
     settings = get_settings()
     if not settings.vector_sync_enabled:
         return JSONResponse(
@@ -299,11 +299,6 @@ async def get_vector_sync_status(request: Request) -> JSONResponse:
         # Get Qdrant client and query indexed count
         indexed_count = 0
         try:
-            from qdrant_client.models import Filter
-
-            from nextcloud_mcp_server.vector.placeholder import get_placeholder_filter
-            from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
-
             qdrant_client = await get_qdrant_client()
 
             # Count documents in collection, excluding placeholders
@@ -375,8 +370,6 @@ async def get_user_session(request: Request) -> JSONResponse:
     # Check if offline access is enabled
     # Use settings.enable_offline_access which handles both ENABLE_BACKGROUND_OPERATIONS (new)
     # and ENABLE_OFFLINE_ACCESS (deprecated) environment variables
-    from nextcloud_mcp_server.config import get_settings
-
     settings = get_settings()
     enable_offline_access = settings.enable_offline_access
 

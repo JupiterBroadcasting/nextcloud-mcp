@@ -6,12 +6,14 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 import anyio
-from caldav.async_collection import AsyncCalendar
+from caldav.async_collection import AsyncCalendar, AsyncEvent
 from caldav.async_davclient import AsyncDAVClient
+from caldav.elements import cdav, dav
 from httpx import Auth
-from icalendar import Alarm, Calendar, vRecur
+from icalendar import Alarm, Calendar, vDDDTypes, vRecur
 from icalendar import Event as ICalEvent
 from icalendar import Todo as ICalTodo
+from lxml import etree  # type: ignore[import-untyped]
 
 from ..config import get_nextcloud_ssl_verify
 
@@ -103,8 +105,6 @@ class CalendarClient:
         # Use custom PROPFIND with CalendarServer namespace (cs:) for calendar-color.
         # caldav library's nsmap lacks "CS" namespace, and its CalendarColor uses
         # Apple iCal namespace which Nextcloud doesn't recognize.
-        from lxml import etree  # type: ignore[import-untyped]
-
         propfind_body = """<?xml version="1.0" encoding="utf-8"?>
 <d:propfind xmlns:d="DAV:" xmlns:cs="http://calendarserver.org/ns/" xmlns:c="urn:ietf:params:xml:ns:caldav">
     <d:prop>
@@ -301,10 +301,6 @@ class CalendarClient:
         end_datetime: Optional[dt.datetime] = None,
     ) -> list:
         """Execute a CalDAV REPORT with time-range filter."""
-        from caldav.async_collection import AsyncEvent
-        from caldav.elements import cdav, dav
-        from lxml import etree  # type: ignore[import-untyped]
-
         # Ensure naive datetimes are treated as UTC
         if start_datetime and start_datetime.tzinfo is None:
             start_datetime = start_datetime.replace(tzinfo=dt.UTC)
@@ -889,8 +885,6 @@ class CalendarClient:
                             component["DTEND"] = end_dt
 
                     # Update timestamps
-                    from icalendar import vDDDTypes
-
                     now = dt.datetime.now(dt.UTC)
                     component["LAST-MODIFIED"] = vDDDTypes(now)
                     component["DTSTAMP"] = vDDDTypes(now)
@@ -955,24 +949,18 @@ class CalendarClient:
         # Due date
         due = todo_data.get("due", "")
         if due:
-            from icalendar import vDDDTypes
-
             due_dt = self._ensure_timezone_aware(due)
             todo.add("due", vDDDTypes(due_dt))
 
         # Start date
         dtstart = todo_data.get("dtstart", "")
         if dtstart:
-            from icalendar import vDDDTypes
-
             start_dt = self._ensure_timezone_aware(dtstart)
             todo.add("dtstart", vDDDTypes(start_dt))
 
         # Completed timestamp
         completed = todo_data.get("completed", "")
         if completed:
-            from icalendar import vDDDTypes
-
             completed_dt = self._ensure_timezone_aware(completed)
             todo.add("completed", vDDDTypes(completed_dt))
 
@@ -1060,9 +1048,6 @@ class CalendarClient:
                         percent_value = todo_data["percent_complete"]
                         component["PERCENT-COMPLETE"] = percent_value
                         logger.debug(f"Set PERCENT-COMPLETE to {percent_value}")
-
-                    # Import vDDDTypes at the beginning for datetime formatting
-                    from icalendar import vDDDTypes
 
                     # Handle due date
                     if "due" in todo_data:

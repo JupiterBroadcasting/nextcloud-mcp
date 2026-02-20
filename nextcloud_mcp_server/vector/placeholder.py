@@ -21,6 +21,7 @@ import logging
 import time
 import uuid
 
+from qdrant_client import models
 from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct
 
 from nextcloud_mcp_server.config import get_settings
@@ -82,8 +83,6 @@ async def write_placeholder_point(
 
         # Create empty sparse vector for placeholders
         # Use models.SparseVector with empty indices/values
-        from qdrant_client import models
-
         empty_sparse = models.SparseVector(indices=[], values=[])
 
         # Generate deterministic point ID

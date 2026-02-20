@@ -26,11 +26,13 @@ import secrets
 import time
 from base64 import urlsafe_b64encode
 from urllib.parse import urlencode
+from urllib.parse import urlparse as parse_url
 
 import jwt
 from starlette.requests import Request
-from starlette.responses import JSONResponse, RedirectResponse
+from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 
+from nextcloud_mcp_server.auth.browser_oauth_routes import oauth_login_callback
 from nextcloud_mcp_server.auth.client_registry import get_client_registry
 from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
 
@@ -228,8 +230,6 @@ async def oauth_authorize(request: Request) -> RedirectResponse | JSONResponse:
         # IMPORTANT: Replace internal Docker hostname with public URL for browser access
         # The discovery endpoint returns http://app/apps/oidc/authorize (internal)
         # But browsers need http://localhost:8080/apps/oidc/authorize (public)
-        from urllib.parse import urlparse as parse_url
-
         public_issuer = os.getenv("NEXTCLOUD_PUBLIC_ISSUER_URL")
         if public_issuer:
             # Parse internal and authorization endpoint to compare hostnames
@@ -364,8 +364,6 @@ async def oauth_authorize_nextcloud(
     # Fix internal hostname for browser access
     public_issuer = os.getenv("NEXTCLOUD_PUBLIC_ISSUER_URL")
     if public_issuer:
-        from urllib.parse import urlparse as parse_url
-
         internal_parsed = parse_url(oauth_config["nextcloud_host"])
         auth_parsed = parse_url(authorization_endpoint)
 
@@ -567,8 +565,6 @@ async def oauth_callback_nextcloud(request: Request):
     </html>
     """
 
-    from starlette.responses import HTMLResponse
-
     return HTMLResponse(content=success_html, status_code=200)
 
 
@@ -633,10 +629,6 @@ async def oauth_callback(request: Request):
     elif flow_type == "browser":
         # Browser UI Login - establish browser session for /user/page access
         logger.info("Routing to browser login flow")
-        from nextcloud_mcp_server.auth.browser_oauth_routes import (
-            oauth_login_callback,
-        )
-
         return await oauth_login_callback(request)
 
     else:

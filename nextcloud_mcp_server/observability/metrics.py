@@ -25,6 +25,8 @@ from prometheus_client import (
     start_http_server,
 )
 
+from nextcloud_mcp_server.observability.tracing import trace_operation
+
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -425,8 +427,6 @@ def instrument_tool(func):
     Returns:
         Wrapped function with metrics and tracing instrumentation
     """
-
-    from nextcloud_mcp_server.observability.tracing import trace_operation
 
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):

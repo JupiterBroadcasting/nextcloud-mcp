@@ -18,6 +18,7 @@ from nextcloud_mcp_server.api.management import (
     extract_bearer_token,
     validate_token_and_get_user,
 )
+from nextcloud_mcp_server.client.webhooks import WebhooksClient
 
 from ..http import nextcloud_httpx_client
 
@@ -115,8 +116,6 @@ async def list_webhooks(request: Request) -> JSONResponse:
         )
 
     try:
-        from nextcloud_mcp_server.client.webhooks import WebhooksClient
-
         # Get Bearer token from request
         token = extract_bearer_token(request)
         if not token:
@@ -180,8 +179,6 @@ async def create_webhook(request: Request) -> JSONResponse:
         )
 
     try:
-        from nextcloud_mcp_server.client.webhooks import WebhooksClient
-
         # Parse request body
         body = await request.json()
         event = body.get("event")
@@ -256,8 +253,6 @@ async def delete_webhook(request: Request) -> JSONResponse:
         )
 
     try:
-        from nextcloud_mcp_server.client.webhooks import WebhooksClient
-
         # Get webhook_id from path parameter
         webhook_id = request.path_params.get("webhook_id")
         if not webhook_id:

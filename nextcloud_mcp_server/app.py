@@ -10,22 +10,17 @@ from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, cast
-from urllib.parse import urlparse
+from typing import Optional, cast
+from urllib.parse import parse_qs, urlparse
 
 import anyio
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-
-if TYPE_CHECKING:
-    from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
-
-
 import click
 import httpx
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
+from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
 from starlette.middleware.authentication import AuthenticationMiddleware
@@ -36,6 +31,23 @@ from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Receive, Send
 from starlette.types import Scope as StarletteScope
 
+from nextcloud_mcp_server.api import (
+    create_webhook,
+    delete_app_password,
+    delete_webhook,
+    get_app_password_status,
+    get_chunk_context,
+    get_installed_apps,
+    get_pdf_preview,
+    get_server_status,
+    get_user_session,
+    get_vector_sync_status,
+    list_webhooks,
+    provision_app_password,
+    revoke_user_access,
+    unified_search,
+    vector_search,
+)
 from nextcloud_mcp_server.auth import (
     InsufficientScopeError,
     discover_all_scopes,
@@ -43,7 +55,38 @@ from nextcloud_mcp_server.auth import (
     has_required_scopes,
     is_jwt_token,
 )
+from nextcloud_mcp_server.auth.browser_oauth_routes import (
+    oauth_login,
+    oauth_login_callback,
+    oauth_logout,
+)
+from nextcloud_mcp_server.auth.client_registration import ensure_oauth_client
+from nextcloud_mcp_server.auth.keycloak_oauth import KeycloakOAuthClient
+from nextcloud_mcp_server.auth.oauth_routes import (
+    oauth_authorize,
+    oauth_authorize_nextcloud,
+    oauth_callback,
+    oauth_callback_nextcloud,
+)
+from nextcloud_mcp_server.auth.session_backend import SessionAuthBackend
+from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
+from nextcloud_mcp_server.auth.token_broker import TokenBrokerService
 from nextcloud_mcp_server.auth.unified_verifier import UnifiedTokenVerifier
+from nextcloud_mcp_server.auth.userinfo_routes import (
+    revoke_session,
+    user_info_html,
+    vector_sync_status_fragment,
+)
+from nextcloud_mcp_server.auth.viz_routes import (
+    chunk_context_endpoint,
+    vector_visualization_html,
+    vector_visualization_search,
+)
+from nextcloud_mcp_server.auth.webhook_routes import (
+    disable_webhook_preset,
+    enable_webhook_preset,
+    webhook_management_pane,
+)
 from nextcloud_mcp_server.client import NextcloudClient
 from nextcloud_mcp_server.config import (
     DeploymentMode,
@@ -82,6 +125,11 @@ from nextcloud_mcp_server.server import (
 )
 from nextcloud_mcp_server.server.oauth_tools import register_oauth_tools
 from nextcloud_mcp_server.vector import processor_task, scanner_task
+from nextcloud_mcp_server.vector.oauth_sync import (
+    oauth_processor_task,
+    user_manager_task,
+)
+from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
 
 logger = logging.getLogger(__name__)
 HTTPXClientInstrumentor().instrument()
@@ -106,7 +154,7 @@ def initialize_document_processors():
     if "unstructured" in config["processors"]:
         unst_config = config["processors"]["unstructured"]
         try:
-            from nextcloud_mcp_server.document_processors.unstructured import (
+            from nextcloud_mcp_server.document_processors.unstructured import (  # noqa: PLC0415
                 UnstructuredProcessor,
             )
 
@@ -127,7 +175,7 @@ def initialize_document_processors():
     if "tesseract" in config["processors"]:
         tess_config = config["processors"]["tesseract"]
         try:
-            from nextcloud_mcp_server.document_processors.tesseract import (
+            from nextcloud_mcp_server.document_processors.tesseract import (  # noqa: PLC0415
                 TesseractProcessor,
             )
 
@@ -145,7 +193,7 @@ def initialize_document_processors():
     if "pymupdf" in config["processors"]:
         pymupdf_config = config["processors"]["pymupdf"]
         try:
-            from nextcloud_mcp_server.document_processors.pymupdf import (
+            from nextcloud_mcp_server.document_processors.pymupdf import (  # noqa: PLC0415
                 PyMuPDFProcessor,
             )
 
@@ -165,7 +213,7 @@ def initialize_document_processors():
     if "custom" in config["processors"]:
         custom_config = config["processors"]["custom"]
         try:
-            from nextcloud_mcp_server.document_processors.custom_http import (
+            from nextcloud_mcp_server.document_processors.custom_http import (  # noqa: PLC0415
                 CustomHTTPProcessor,
             )
 
@@ -431,8 +479,6 @@ class SmitheryConfigMiddleware:
     ) -> None:
         if scope["type"] == "http":
             # Extract config from query parameters
-            from urllib.parse import parse_qs
-
             query_string = scope.get("query_string", b"").decode("utf-8")
             params = parse_qs(query_string)
 
@@ -507,8 +553,6 @@ async def load_oauth_client_credentials(
 
     # Try loading from SQLite storage
     try:
-        from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
-
         storage = RefreshTokenStorage.from_env()
         await storage.initialize()
 
@@ -559,9 +603,6 @@ async def load_oauth_client_credentials(
         logger.info(f"Requesting token type: {token_type}")
 
         # Ensure OAuth client in SQLite storage
-        from nextcloud_mcp_server.auth.client_registration import ensure_oauth_client
-        from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
-
         storage = RefreshTokenStorage.from_env()
         await storage.initialize()
 
@@ -625,8 +666,6 @@ async def app_lifespan_basic(server: FastMCP) -> AsyncIterator[AppContext]:
         )
 
     # Initialize persistent storage (for webhook tracking and future features)
-    from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
-
     storage = RefreshTokenStorage.from_env()
     await storage.initialize()
     logger.info("Persistent storage initialized (webhook tracking enabled)")
@@ -756,10 +795,6 @@ async def setup_oauth_config():
     refresh_token_storage = None
     if enable_offline_access:
         try:
-            from nextcloud_mcp_server.auth.storage import (
-                RefreshTokenStorage,
-            )
-
             # Validate encryption key before initializing
             encryption_key = os.getenv("TOKEN_ENCRYPTION_KEY")
             if not encryption_key:
@@ -881,8 +916,6 @@ async def setup_oauth_config():
     oauth_client = None
     if enable_offline_access and refresh_token_storage and is_external_idp:
         # For external IdP mode, create generic OIDC client for token operations
-        from nextcloud_mcp_server.auth.keycloak_oauth import KeycloakOAuthClient
-
         mcp_server_url = os.getenv("NEXTCLOUD_MCP_SERVER_URL", "http://localhost:8000")
         # Note: This redirect_uri is for OAuth client initialization, not used for actual redirects
         # since this client is used for backend token operations (exchange, refresh)
@@ -1077,8 +1110,6 @@ async def setup_oauth_config_for_multi_user_basic(
     refresh_token_storage = None
     if settings.enable_offline_access:
         try:
-            from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
-
             encryption_key = os.getenv("TOKEN_ENCRYPTION_KEY")
             if not encryption_key:
                 logger.warning(
@@ -1544,8 +1575,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
             )
         else:
             # BasicAuth mode - initialize storage for webhook management
-            from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
-
             basic_auth_storage = RefreshTokenStorage.from_env()
             await basic_auth_storage.initialize()
             logger.info("Initialized refresh token storage for webhook management")
@@ -1653,7 +1682,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
 
             # Initialize Qdrant collection before starting background tasks
             logger.info("Initializing Qdrant collection...")
-            from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
 
             try:
                 await get_qdrant_client()  # Triggers collection creation if needed
@@ -1745,12 +1773,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
             mode_desc = "OAuth mode" if oauth_enabled else "Multi-user BasicAuth mode"
             logger.info(f"Starting background vector sync tasks for {mode_desc}")
 
-            from nextcloud_mcp_server.auth.token_broker import TokenBrokerService
-            from nextcloud_mcp_server.vector.oauth_sync import (
-                oauth_processor_task,
-                user_manager_task,
-            )
-
             # Get nextcloud_host (from settings - already validated)
             nextcloud_host_for_sync = settings.nextcloud_host
             if not nextcloud_host_for_sync:
@@ -1815,7 +1837,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
 
                 # Initialize Qdrant collection before starting background tasks
                 logger.info("Initializing Qdrant collection...")
-                from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
 
                 try:
                     await get_qdrant_client()  # Triggers collection creation if needed
@@ -2126,24 +2147,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
         settings.enable_multi_user_basic_auth and settings.enable_offline_access
     )
     if enable_management_apis:
-        from nextcloud_mcp_server.api import (
-            create_webhook,
-            delete_app_password,
-            delete_webhook,
-            get_app_password_status,
-            get_chunk_context,
-            get_installed_apps,
-            get_pdf_preview,
-            get_server_status,
-            get_user_session,
-            get_vector_sync_status,
-            list_webhooks,
-            provision_app_password,
-            revoke_user_access,
-            unified_search,
-            vector_search,
-        )
-
         routes.append(Route("/api/v1/status", get_server_status, methods=["GET"]))
         routes.append(
             Route(
@@ -2251,8 +2254,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
             f"OAuth provisioning routes enabled for mode: {mode.value} "
             f"(oauth_enabled={oauth_enabled}, hybrid_mode={not oauth_enabled})"
         )
-        # Import OAuth routes (ADR-004 Progressive Consent)
-        from nextcloud_mcp_server.auth.oauth_routes import oauth_authorize
 
         def oauth_protected_resource_metadata(request):
             """RFC 9728 Protected Resource Metadata endpoint.
@@ -2314,12 +2315,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
         )
 
         # Add unified OAuth callback endpoint supporting both flows
-        from nextcloud_mcp_server.auth.oauth_routes import (
-            oauth_authorize_nextcloud,
-            oauth_callback,
-            oauth_callback_nextcloud,
-        )
-
         routes.append(Route("/oauth/callback", oauth_callback, methods=["GET"]))
         logger.info(
             "OAuth unified callback enabled: /oauth/callback?flow={browser|provisioning}"
@@ -2348,8 +2343,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
     # Add OAuth Flow 1 routes (MCP client login) - ONLY for OAuth modes
     # Multi-user BasicAuth uses hybrid mode with only Flow 2 (resource provisioning)
     if oauth_enabled:
-        from nextcloud_mcp_server.auth.oauth_routes import oauth_authorize
-
         routes.append(Route("/oauth/authorize", oauth_authorize, methods=["GET"]))
         logger.info("OAuth login routes enabled: /oauth/authorize (Flow 1)")
 
@@ -2357,12 +2350,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
     # Available in OAuth modes AND multi-user BasicAuth with offline access
     # (hybrid mode). Separate from MCP tool auth - Management API uses OAuth
     if oauth_provisioning_available:
-        from nextcloud_mcp_server.auth.browser_oauth_routes import (
-            oauth_login,
-            oauth_login_callback,
-            oauth_logout,
-        )
-
         routes.append(
             Route("/oauth/login", oauth_login, methods=["GET"], name="oauth_login")
         )
@@ -2385,24 +2372,6 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
     # Add user info routes (available in both BasicAuth and OAuth modes)
     # ADR-016: Skip /app admin UI in Smithery stateless mode (no vector sync, webhooks)
     if deployment_mode != DeploymentMode.SMITHERY_STATELESS:
-        # These require session authentication, so we wrap them in a separate app
-        from nextcloud_mcp_server.auth.session_backend import SessionAuthBackend
-        from nextcloud_mcp_server.auth.userinfo_routes import (
-            revoke_session,
-            user_info_html,
-            vector_sync_status_fragment,
-        )
-        from nextcloud_mcp_server.auth.viz_routes import (
-            chunk_context_endpoint,
-            vector_visualization_html,
-            vector_visualization_search,
-        )
-        from nextcloud_mcp_server.auth.webhook_routes import (
-            disable_webhook_preset,
-            enable_webhook_preset,
-            webhook_management_pane,
-        )
-
         # Create a separate Starlette app for browser routes that need session auth
         # This prevents SessionAuthBackend from interfering with FastMCP's OAuth
         browser_routes = [

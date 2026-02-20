@@ -8,6 +8,7 @@ Nextcloud access using the Flow 2 (Resource Provisioning) OAuth flow.
 import logging
 import os
 import secrets
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import urlencode
 
@@ -19,9 +20,11 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, Field
 
 from nextcloud_mcp_server.auth import require_scopes
+from nextcloud_mcp_server.auth.astrolabe_client import AstrolabeClient
 from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
 from nextcloud_mcp_server.auth.token_broker import TokenBrokerService
 from nextcloud_mcp_server.auth.userinfo_routes import _query_idp_userinfo
+from nextcloud_mcp_server.config import get_settings
 
 from ..http import nextcloud_httpx_client
 
@@ -157,11 +160,6 @@ async def get_provisioning_status(ctx: Context, user_id: str) -> ProvisioningSta
     Returns:
         ProvisioningStatus with current provisioning state
     """
-    from datetime import datetime, timezone
-
-    from nextcloud_mcp_server.auth.astrolabe_client import AstrolabeClient
-    from nextcloud_mcp_server.config import get_settings
-
     settings = get_settings()
 
     # Check for app password first (interim solution)
@@ -305,8 +303,6 @@ async def provision_nextcloud_access(
 
         # Get configuration using settings (handles both ENABLE_BACKGROUND_OPERATIONS
         # and ENABLE_OFFLINE_ACCESS environment variables)
-        from nextcloud_mcp_server.config import get_settings
-
         settings = get_settings()
         if not settings.enable_offline_access:
             return ProvisioningResult(
@@ -490,8 +486,6 @@ async def check_logged_in(ctx: Context, user_id: Optional[str] = None) -> str:
 
         # Not logged in - generate OAuth URL for Flow 2
         # Use settings (handles both ENABLE_BACKGROUND_OPERATIONS and ENABLE_OFFLINE_ACCESS)
-        from nextcloud_mcp_server.config import get_settings
-
         settings = get_settings()
         if not settings.enable_offline_access:
             return (

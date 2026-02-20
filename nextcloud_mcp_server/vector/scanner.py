@@ -8,6 +8,7 @@ import os
 import random
 import time
 from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
 
 import anyio
 from anyio.abc import TaskStatus
@@ -15,6 +16,7 @@ from anyio.streams.memory import MemoryObjectSendStream
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 
 from nextcloud_mcp_server.client import NextcloudClient
+from nextcloud_mcp_server.client.news import NewsItemType
 from nextcloud_mcp_server.config import get_settings
 from nextcloud_mcp_server.observability.metrics import record_vector_sync_scan
 from nextcloud_mcp_server.observability.tracing import trace_operation
@@ -418,8 +420,6 @@ async def scan_user_documents(
                 modified_at = file_info.get("last_modified_timestamp", int(time.time()))
                 if isinstance(file_info.get("last_modified"), str):
                     # Parse RFC 2822 date format if needed
-                    from email.utils import parsedate_to_datetime
-
                     try:
                         dt = parsedate_to_datetime(file_info["last_modified"])
                         modified_at = int(dt.timestamp())
@@ -615,8 +615,6 @@ async def scan_news_items(
     Returns:
         Number of items queued for processing
     """
-    from nextcloud_mcp_server.client.news import NewsItemType
-
     settings = get_settings()
     queued = 0
 

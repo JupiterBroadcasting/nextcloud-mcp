@@ -7,15 +7,19 @@ from httpx import RequestError
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.shared.exceptions import McpError
 from mcp.types import (
+    ClientCapabilities,
     ErrorData,
     ModelHint,
     ModelPreferences,
+    SamplingCapability,
     SamplingMessage,
     TextContent,
     ToolAnnotations,
 )
+from qdrant_client.models import Filter
 
 from nextcloud_mcp_server.auth import require_scopes
+from nextcloud_mcp_server.config import get_settings
 from nextcloud_mcp_server.context import get_client
 from nextcloud_mcp_server.models.semantic import (
     SamplingSearchResponse,
@@ -28,6 +32,8 @@ from nextcloud_mcp_server.observability.metrics import (
 )
 from nextcloud_mcp_server.search.bm25_hybrid import BM25HybridSearchAlgorithm
 from nextcloud_mcp_server.search.context import get_chunk_with_context
+from nextcloud_mcp_server.vector.placeholder import get_placeholder_filter
+from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +88,6 @@ def configure_semantic_tools(mcp: FastMCP):
         Returns:
             SemanticSearchResponse with matching documents ranked by fusion scores
         """
-        from nextcloud_mcp_server.config import get_settings
-
         settings = get_settings()
         client = await get_client(ctx)
         username = client.username
@@ -373,8 +377,6 @@ def configure_semantic_tools(mcp: FastMCP):
             )
 
         # 3. Check if client supports sampling
-        from mcp.types import ClientCapabilities, SamplingCapability
-
         client_has_sampling = ctx.session.check_client_capability(
             ClientCapabilities(sampling=SamplingCapability())
         )
@@ -658,8 +660,6 @@ def configure_semantic_tools(mcp: FastMCP):
         """
 
         # Check if vector sync is enabled (supports both old and new env var names)
-        from nextcloud_mcp_server.config import get_settings
-
         settings = get_settings()
         if not settings.vector_sync_enabled:
             return VectorSyncStatusResponse(
@@ -694,15 +694,6 @@ def configure_semantic_tools(mcp: FastMCP):
             # Get Qdrant client and query indexed count
             indexed_count = 0
             try:
-                from qdrant_client.models import Filter
-
-                from nextcloud_mcp_server.config import get_settings
-                from nextcloud_mcp_server.vector.placeholder import (
-                    get_placeholder_filter,
-                )
-                from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
-
-                settings = get_settings()
                 qdrant_client = await get_qdrant_client()
 
                 # Count documents in collection, excluding placeholders

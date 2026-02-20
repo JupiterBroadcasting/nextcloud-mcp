@@ -15,6 +15,7 @@ from mcp.shared.exceptions import McpError
 from mcp.types import ErrorData
 
 from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
+from nextcloud_mcp_server.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +67,6 @@ def require_provisioning(func: Callable) -> Callable:
 
         # Check if we're in token exchange mode - if so, skip provisioning check
         # In token exchange mode, tokens are exchanged per-request (no stored refresh tokens)
-        from nextcloud_mcp_server.config import get_settings
-
         settings = get_settings()
         if hasattr(lifespan_ctx, "nextcloud_host") and settings.enable_token_exchange:
             # Token exchange mode - per-request exchange, no provisioning needed

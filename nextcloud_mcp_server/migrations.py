@@ -11,6 +11,7 @@ from pathlib import Path
 
 from alembic.config import Config
 
+import nextcloud_mcp_server.alembic as alembic_package
 from alembic import command
 
 logger = logging.getLogger(__name__)
@@ -30,8 +31,6 @@ def get_alembic_config(database_path: str | Path | None = None) -> Config:
     Returns:
         Alembic Config object configured for the specified database
     """
-    from nextcloud_mcp_server import alembic as alembic_package
-
     # Use package location (works in both editable and installed modes)
     if alembic_package.__file__ is None:
         raise RuntimeError("alembic package __file__ is None")

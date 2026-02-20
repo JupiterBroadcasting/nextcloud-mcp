@@ -6,6 +6,7 @@ from qdrant_client import AsyncQdrantClient, models
 from qdrant_client.models import Distance, VectorParams
 
 from nextcloud_mcp_server.config import get_settings
+from nextcloud_mcp_server.embedding import get_embedding_service
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +62,6 @@ async def get_qdrant_client() -> AsyncQdrantClient:
 
         # Get collection name (auto-generated from deployment ID + model)
         collection_name = settings.get_collection_name()
-
-        # Import here to avoid circular dependency
-        from nextcloud_mcp_server.embedding import get_embedding_service
 
         embedding_service = get_embedding_service()
 

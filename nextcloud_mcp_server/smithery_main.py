@@ -36,7 +36,7 @@ def main():
     logger.info("Starting Nextcloud MCP Server in Smithery stateless mode")
 
     # Import app after setting environment variables
-    from nextcloud_mcp_server.app import get_app
+    from nextcloud_mcp_server.app import get_app  # noqa: PLC0415
 
     # Create the app with streamable-http transport (required for Smithery)
     app = get_app(transport="streamable-http")

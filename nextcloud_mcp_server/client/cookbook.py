@@ -2,6 +2,7 @@
 
 import logging
 from typing import Any, Dict, List
+from urllib.parse import quote
 
 from httpx import Timeout
 
@@ -164,9 +165,6 @@ class CookbookClient(BaseNextcloudClient):
         Returns:
             List of matching recipe stubs
         """
-        # URL encode the query
-        from urllib.parse import quote
-
         encoded_query = quote(query)
         response = await self._make_request(
             "GET", f"/apps/cookbook/api/v1/search/{encoded_query}"
@@ -193,8 +191,6 @@ class CookbookClient(BaseNextcloudClient):
         Returns:
             List of recipe stubs in the category
         """
-        from urllib.parse import quote
-
         encoded_category = quote(category)
         response = await self._make_request(
             "GET", f"/apps/cookbook/api/v1/category/{encoded_category}"
@@ -211,8 +207,6 @@ class CookbookClient(BaseNextcloudClient):
         Returns:
             New category name
         """
-        from urllib.parse import quote
-
         encoded_old_name = quote(old_name)
         response = await self._make_request(
             "PUT",
@@ -241,8 +235,6 @@ class CookbookClient(BaseNextcloudClient):
         Returns:
             List of recipe stubs matching the keywords
         """
-        from urllib.parse import quote
-
         # Join keywords with commas
         keywords_str = ",".join(keywords)
         encoded_keywords = quote(keywords_str)

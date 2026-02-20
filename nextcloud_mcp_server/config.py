@@ -268,9 +268,7 @@ class Settings:
                 "This is insecure and should only be used for development/testing."
             )
         if self.nextcloud_ca_bundle:
-            import os as _os
-
-            if not _os.path.isfile(self.nextcloud_ca_bundle):
+            if not os.path.isfile(self.nextcloud_ca_bundle):
                 raise ValueError(
                     f"NEXTCLOUD_CA_BUNDLE path does not exist: {self.nextcloud_ca_bundle}"
                 )

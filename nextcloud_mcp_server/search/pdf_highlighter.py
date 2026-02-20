@@ -12,11 +12,14 @@ import logging
 import re
 import shutil
 import tempfile
+from collections import defaultdict
+from io import BytesIO
 from pathlib import Path
 from typing import Optional
 
 import pymupdf
 import pymupdf4llm
+from PIL import Image, ImageDraw
 
 logger = logging.getLogger(__name__)
 
@@ -682,8 +685,6 @@ class PDFHighlighter:
             # Clean up temp directory and PDF file
             if temp_pdf_path and temp_pdf_path.parent.exists():
                 try:
-                    import shutil
-
                     shutil.rmtree(temp_pdf_path.parent)
                 except Exception as e:
                     logger.warning(
@@ -720,11 +721,6 @@ class PDFHighlighter:
             Dict mapping chunk_index to (png_bytes, page_number, highlight_count)
             Chunks that fail to highlight are omitted from the result.
         """
-        import shutil
-        import tempfile
-        from collections import defaultdict
-        from pathlib import Path
-
         results: dict[int, tuple[bytes, int, int]] = {}
 
         if not chunks:
@@ -798,9 +794,6 @@ class PDFHighlighter:
 
             # OPTIMIZATION: Render each page ONCE, then draw highlights using PIL
             # This avoids expensive page.get_pixmap() calls per chunk
-            from io import BytesIO
-
-            from PIL import Image, ImageDraw
 
             # PIL color for bounding box (RGB tuple)
             rgb = PDFHighlighter.COLORS.get(color, PDFHighlighter.COLORS["yellow"])

@@ -9,6 +9,8 @@ from mcp.server.auth.provider import AccessToken
 from mcp.server.fastmcp import Context
 from mcp.server.fastmcp.utilities.context_injection import find_context_parameter
 
+from nextcloud_mcp_server.config import get_settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -132,8 +134,6 @@ def require_scopes(*required_scopes: str):
             # Check if offline access is enabled
             # Use settings.enable_offline_access which handles both ENABLE_BACKGROUND_OPERATIONS (new)
             # and ENABLE_OFFLINE_ACCESS (deprecated) environment variables
-            from nextcloud_mcp_server.config import get_settings
-
             settings = get_settings()
             enable_offline_access = settings.enable_offline_access
 

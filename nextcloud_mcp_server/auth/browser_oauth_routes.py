@@ -11,6 +11,7 @@ import secrets
 import time
 from base64 import urlsafe_b64encode
 from urllib.parse import urlencode
+from urllib.parse import urlparse as parse_url
 
 import httpx
 import jwt
@@ -153,8 +154,6 @@ async def oauth_login(request: Request) -> RedirectResponse | JSONResponse:
         # Replace internal Docker hostname with public URL
         public_issuer = os.getenv("NEXTCLOUD_PUBLIC_ISSUER_URL")
         if public_issuer:
-            from urllib.parse import urlparse as parse_url
-
             internal_parsed = parse_url(oauth_config["nextcloud_host"])
             auth_parsed = parse_url(authorization_endpoint)
 

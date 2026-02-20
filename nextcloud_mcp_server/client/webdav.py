@@ -3,7 +3,9 @@
 import logging
 import mimetypes
 import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import unquote
 
 from httpx import HTTPStatusError
 
@@ -1259,8 +1261,6 @@ class WebDAVClient(BaseNextcloudClient):
                 continue
 
             # Decode href path and extract the file path
-            from urllib.parse import unquote
-
             href_path = unquote(href_elem.text)
             # Remove WebDAV prefix to get user-relative path
             webdav_prefix = f"/remote.php/dav/files/{self.username}/"
@@ -1269,8 +1269,6 @@ class WebDAVClient(BaseNextcloudClient):
             # Parse last modified timestamp
             last_modified_timestamp = None
             if lastmodified_elem is not None and lastmodified_elem.text:
-                from email.utils import parsedate_to_datetime
-
                 try:
                     dt = parsedate_to_datetime(lastmodified_elem.text)
                     last_modified_timestamp = int(dt.timestamp())

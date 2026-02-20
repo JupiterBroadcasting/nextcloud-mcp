@@ -11,13 +11,10 @@ All endpoints require OAuth bearer token authentication via UnifiedTokenVerifier
 
 import base64
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pymupdf
-
-if TYPE_CHECKING:
-    pass
-
+from qdrant_client.models import FieldCondition, Filter, MatchValue
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -29,6 +26,17 @@ from nextcloud_mcp_server.api.management import (
     extract_bearer_token,
     validate_token_and_get_user,
 )
+from nextcloud_mcp_server.client import NextcloudClient
+from nextcloud_mcp_server.config import get_settings
+from nextcloud_mcp_server.embedding.service import get_embedding_service
+from nextcloud_mcp_server.search import (
+    BM25HybridSearchAlgorithm,
+    SemanticSearchAlgorithm,
+)
+from nextcloud_mcp_server.search.context import get_chunk_with_context
+from nextcloud_mcp_server.vector.placeholder import get_placeholder_filter
+from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
+from nextcloud_mcp_server.vector.visualization import compute_pca_coordinates
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +76,6 @@ async def unified_search(request: Request) -> JSONResponse:
 
     Requires OAuth bearer token for user filtering.
     """
-    from nextcloud_mcp_server.config import get_settings
-
     settings = get_settings()
     if not settings.vector_sync_enabled:
         return JSONResponse(
@@ -143,12 +149,6 @@ async def unified_search(request: Request) -> JSONResponse:
         valid_fusions = {"rrf", "dbsf"}
         if fusion not in valid_fusions:
             fusion = "rrf"
-
-        # Execute search using the appropriate algorithm
-        from nextcloud_mcp_server.search import (
-            BM25HybridSearchAlgorithm,
-            SemanticSearchAlgorithm,
-        )
 
         # Select search algorithm
         if algorithm == "semantic":
@@ -254,17 +254,9 @@ async def unified_search(request: Request) -> JSONResponse:
         # Optional PCA coordinates
         if include_pca and len(paginated_results) >= 2:
             try:
-                from nextcloud_mcp_server.vector.visualization import (
-                    compute_pca_coordinates,
-                )
-
                 if search_algo.query_embedding is not None:
                     query_embedding = search_algo.query_embedding
                 else:
-                    from nextcloud_mcp_server.embedding.service import (
-                        get_embedding_service,
-                    )
-
                     embedding_service = get_embedding_service()
                     query_embedding = await embedding_service.embed(query)
 
@@ -305,8 +297,6 @@ async def vector_search(request: Request) -> JSONResponse:
 
     Requires OAuth bearer token for user filtering.
     """
-    from nextcloud_mcp_server.config import get_settings
-
     settings = get_settings()
     if not settings.vector_sync_enabled:
         return JSONResponse(
@@ -353,12 +343,6 @@ async def vector_search(request: Request) -> JSONResponse:
         valid_fusions = {"rrf", "dbsf"}
         if fusion not in valid_fusions:
             fusion = "rrf"
-
-        # Execute search using the appropriate algorithm
-        from nextcloud_mcp_server.search import (
-            BM25HybridSearchAlgorithm,
-            SemanticSearchAlgorithm,
-        )
 
         # Select search algorithm
         if algorithm == "semantic":
@@ -428,18 +412,10 @@ async def vector_search(request: Request) -> JSONResponse:
         # Compute PCA coordinates for visualization using shared function
         if include_pca and len(all_results) >= 2:
             try:
-                from nextcloud_mcp_server.vector.visualization import (
-                    compute_pca_coordinates,
-                )
-
                 # Get query embedding from search algorithm or generate it
                 if search_algo.query_embedding is not None:
                     query_embedding = search_algo.query_embedding
                 else:
-                    from nextcloud_mcp_server.embedding.service import (
-                        get_embedding_service,
-                    )
-
                     embedding_service = get_embedding_service()
                     query_embedding = await embedding_service.embed(query)
 
@@ -549,9 +525,6 @@ async def get_chunk_context(request: Request) -> JSONResponse:
             raise ValueError("Nextcloud host not configured")
 
         # Initialize authenticated Nextcloud client
-        from nextcloud_mcp_server.client import NextcloudClient
-        from nextcloud_mcp_server.search.context import get_chunk_with_context
-
         async with NextcloudClient.from_token(
             base_url=nextcloud_host, token=token, username=user_id
         ) as nc_client:
@@ -581,14 +554,6 @@ async def get_chunk_context(request: Request) -> JSONResponse:
 
         if doc_type == "file":
             try:
-                from qdrant_client.models import FieldCondition, Filter, MatchValue
-
-                from nextcloud_mcp_server.config import get_settings
-                from nextcloud_mcp_server.vector.placeholder import (
-                    get_placeholder_filter,
-                )
-                from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
-
                 settings = get_settings()
                 qdrant_client = await get_qdrant_client()
 
@@ -735,8 +700,6 @@ async def get_pdf_preview(request: Request) -> JSONResponse:
             raise ValueError("Nextcloud host not configured")
 
         # Download PDF via WebDAV using user's token
-        from nextcloud_mcp_server.client import NextcloudClient
-
         async with NextcloudClient.from_token(
             base_url=nextcloud_host, token=token, username=user_id
         ) as nc_client:

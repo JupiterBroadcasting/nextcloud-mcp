@@ -4,6 +4,7 @@ import logging
 from typing import Any, AsyncIterator, Dict, Optional
 
 from .base import BaseNextcloudClient
+from .webdav import WebDAVClient
 
 logger = logging.getLogger(__name__)
 
@@ -157,9 +158,6 @@ class NotesClient(BaseNextcloudClient):
                 f"Category changed from '{old_note.get('category', '')}' to '{category}' - cleaning up old attachment directory"
             )
             try:
-                # Import here to avoid circular imports
-                from .webdav import WebDAVClient
-
                 webdav_client = WebDAVClient(self._client, self.username)
                 await webdav_client.cleanup_old_attachment_directory(
                     note_id=note_id, old_category=old_note.get("category", "")
@@ -204,8 +202,6 @@ class NotesClient(BaseNextcloudClient):
 
         # Clean up attachment directories
         try:
-            from .webdav import WebDAVClient
-
             webdav_client = WebDAVClient(self._client, self.username)
 
             for cat in potential_categories:

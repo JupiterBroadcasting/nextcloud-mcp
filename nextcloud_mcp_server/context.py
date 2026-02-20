@@ -5,6 +5,10 @@ import logging
 from httpx import BasicAuth
 from mcp.server.fastmcp import Context
 
+from nextcloud_mcp_server.auth.context_helper import (
+    get_client_from_context,
+    get_session_client_from_context,
+)
 from nextcloud_mcp_server.client import NextcloudClient
 from nextcloud_mcp_server.config import (
     DeploymentMode,
@@ -80,11 +84,6 @@ async def get_client(ctx: Context) -> NextcloudClient:
 
     # OAuth mode (has 'nextcloud_host' attribute)
     if hasattr(lifespan_ctx, "nextcloud_host"):
-        from nextcloud_mcp_server.auth.context_helper import (
-            get_client_from_context,
-            get_session_client_from_context,
-        )
-
         if settings.enable_token_exchange:
             # Mode 2: Exchange MCP token for Nextcloud token
             # Token was validated to have MCP audience in UnifiedTokenVerifier
@@ -131,7 +130,7 @@ def _get_client_from_session_config(ctx: Context) -> NextcloudClient:
         ValueError: If required session config fields are missing
     """
     # ADR-016: Get session config from context variable (set by SmitheryConfigMiddleware)
-    from nextcloud_mcp_server.app import get_smithery_session_config
+    from nextcloud_mcp_server.app import get_smithery_session_config  # noqa: PLC0415
 
     session_config = get_smithery_session_config()
 

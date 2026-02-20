@@ -18,16 +18,22 @@ from pathlib import Path
 import anyio
 import numpy as np
 from jinja2 import Environment, FileSystemLoader
+from qdrant_client.models import FieldCondition, Filter, MatchValue
 from starlette.authentication import requires
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse
 
+from nextcloud_mcp_server.auth.userinfo_routes import (
+    _get_authenticated_client_for_userinfo,
+)
 from nextcloud_mcp_server.config import get_settings
+from nextcloud_mcp_server.embedding.service import get_embedding_service
 from nextcloud_mcp_server.observability.tracing import trace_operation
 from nextcloud_mcp_server.search import (
     BM25HybridSearchAlgorithm,
     SemanticSearchAlgorithm,
 )
+from nextcloud_mcp_server.search.context import get_chunk_with_context
 from nextcloud_mcp_server.vector.pca import PCA
 from nextcloud_mcp_server.vector.placeholder import get_placeholder_filter
 from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
@@ -137,10 +143,6 @@ async def vector_visualization_search(request: Request) -> JSONResponse:
         # Get authenticated HTTP client from session
         # In BasicAuth mode: uses username/password from session
         # In OAuth mode: uses access token from session
-        from nextcloud_mcp_server.auth.userinfo_routes import (
-            _get_authenticated_client_for_userinfo,
-        )
-
         with trace_operation("vector_viz.get_auth_client"):
             auth_client_ctx = await _get_authenticated_client_for_userinfo(request)
 
@@ -353,8 +355,6 @@ async def vector_visualization_search(request: Request) -> JSONResponse:
             )
         else:
             # Fallback: generate embedding if not available from search
-            from nextcloud_mcp_server.embedding.service import get_embedding_service
-
             embedding_service = get_embedding_service()
             query_embedding = await embedding_service.embed(query)
             logger.info(f"Generated query embedding (dimension={len(query_embedding)})")
@@ -555,11 +555,6 @@ async def chunk_context_endpoint(request: Request) -> JSONResponse:
         doc_id_int = int(doc_id)
 
         # Get authenticated Nextcloud client
-        from nextcloud_mcp_server.auth.userinfo_routes import (
-            _get_authenticated_client_for_userinfo,
-        )
-        from nextcloud_mcp_server.search.context import get_chunk_with_context
-
         # Use context expansion module to fetch chunk with surrounding context
         async with await _get_authenticated_client_for_userinfo(request) as nc_client:
             chunk_context = await get_chunk_with_context(
@@ -594,8 +589,6 @@ async def chunk_context_endpoint(request: Request) -> JSONResponse:
         page_number = None
         if doc_type == "file":
             try:
-                from qdrant_client.models import FieldCondition, Filter, MatchValue
-
                 settings = get_settings()
                 qdrant_client = await get_qdrant_client()
                 username = request.user.display_name

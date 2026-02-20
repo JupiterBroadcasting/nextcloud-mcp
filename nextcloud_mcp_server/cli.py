@@ -6,6 +6,13 @@ import uvicorn
 from nextcloud_mcp_server.config import (
     get_settings,
 )
+from nextcloud_mcp_server.migrations import (
+    create_migration,
+    downgrade_database,
+    get_current_revision,
+    show_migration_history,
+    upgrade_database,
+)
 from nextcloud_mcp_server.observability import get_uvicorn_logging_config
 
 from .app import get_app
@@ -289,8 +296,6 @@ def upgrade(database_path: str, revision: str):
       # Use custom database path
       $ nextcloud-mcp-server db upgrade -d /path/to/tokens.db
     """
-    from nextcloud_mcp_server.migrations import upgrade_database
-
     try:
         click.echo(f"Upgrading database to revision: {revision}")
         upgrade_database(database_path, revision)
@@ -335,8 +340,6 @@ def downgrade(database_path: str, revision: str):
       # Downgrade to base (empty database)
       $ nextcloud-mcp-server db downgrade --revision base
     """
-    from nextcloud_mcp_server.migrations import downgrade_database
-
     try:
         click.echo(f"Downgrading database to revision: {revision}")
         downgrade_database(database_path, revision)
@@ -362,8 +365,6 @@ def current(database_path: str):
     Example:
       $ nextcloud-mcp-server db current
     """
-    from nextcloud_mcp_server.migrations import get_current_revision
-
     try:
         revision = get_current_revision(database_path)
         if revision:
@@ -397,8 +398,6 @@ def history(database_path: str):
     Example:
       $ nextcloud-mcp-server db history
     """
-    from nextcloud_mcp_server.migrations import show_migration_history
-
     try:
         click.echo("Migration history:")
         show_migration_history(database_path)
@@ -421,8 +420,6 @@ def migrate(message: str):
 
     Note: You must manually edit the generated migration file to add SQL statements.
     """
-    from nextcloud_mcp_server.migrations import create_migration
-
     try:
         click.echo(f"Creating new migration: {message}")
         create_migration(message)

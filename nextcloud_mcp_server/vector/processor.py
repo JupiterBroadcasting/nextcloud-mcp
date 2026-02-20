@@ -17,6 +17,7 @@ from qdrant_client.models import FieldCondition, Filter, MatchValue, PointStruct
 
 from nextcloud_mcp_server.client import NextcloudClient
 from nextcloud_mcp_server.config import get_settings
+from nextcloud_mcp_server.document_processors import get_registry
 from nextcloud_mcp_server.embedding import get_bm25_service, get_embedding_service
 from nextcloud_mcp_server.observability.metrics import (
     record_qdrant_operation,
@@ -24,7 +25,9 @@ from nextcloud_mcp_server.observability.metrics import (
     update_vector_sync_queue_size,
 )
 from nextcloud_mcp_server.observability.tracing import trace_operation
+from nextcloud_mcp_server.search.pdf_highlighter import PDFHighlighter
 from nextcloud_mcp_server.vector.document_chunker import DocumentChunker
+from nextcloud_mcp_server.vector.html_processor import html_to_markdown
 from nextcloud_mcp_server.vector.placeholder import delete_placeholder_point
 from nextcloud_mcp_server.vector.qdrant_client import get_qdrant_client
 from nextcloud_mcp_server.vector.scanner import DocumentTask
@@ -275,8 +278,6 @@ async def _index_document(
             content_bytes = None  # Notes don't have binary content
             content_type = None
         elif doc_task.doc_type == "news_item":
-            from nextcloud_mcp_server.vector.html_processor import html_to_markdown
-
             item = await nc_client.news.get_item(int(doc_task.doc_id))
             # Convert HTML body to Markdown for better embedding
             body_markdown = html_to_markdown(item.get("body", ""))
@@ -437,8 +438,6 @@ async def _index_document(
             },
         ):
             # Use document processor registry to extract text
-            from nextcloud_mcp_server.document_processors import get_registry
-
             registry = get_registry()
 
             try:
@@ -586,8 +585,6 @@ async def _index_document(
                 "vector_sync.pdf_size": len(content_bytes),
             },
         ):
-            from nextcloud_mcp_server.search.pdf_highlighter import PDFHighlighter
-
             # Build chunk data for batch processing
             # Format: (chunk_index, start_offset, end_offset, page_number, chunk_text)
             chunk_data: list[tuple[int, int, int, int | None, str]] = [

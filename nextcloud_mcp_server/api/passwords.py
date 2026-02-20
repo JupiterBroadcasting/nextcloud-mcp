@@ -15,18 +15,16 @@ import logging
 import re
 import time
 from collections import defaultdict
-from typing import TYPE_CHECKING
 
 import httpx
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from ..http import nextcloud_httpx_client
-
-if TYPE_CHECKING:
-    from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
-
 from nextcloud_mcp_server.api.management import _sanitize_error_for_client
+from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
+from nextcloud_mcp_server.config import get_settings
+
+from ..http import nextcloud_httpx_client
 
 logger = logging.getLogger(__name__)
 
@@ -158,7 +156,7 @@ def _extract_basic_auth(
     return username, password, None
 
 
-async def _get_app_password_storage(request: Request) -> "RefreshTokenStorage":
+async def _get_app_password_storage(request: Request) -> RefreshTokenStorage:
     """Get or initialize RefreshTokenStorage for app password operations.
 
     Checks app.state.storage first, then falls back to creating from environment.
@@ -170,8 +168,6 @@ async def _get_app_password_storage(request: Request) -> "RefreshTokenStorage":
     Returns:
         Initialized RefreshTokenStorage instance
     """
-    from nextcloud_mcp_server.auth.storage import RefreshTokenStorage
-
     storage = getattr(request.app.state, "storage", None)
 
     if not storage:
@@ -202,8 +198,6 @@ async def provision_app_password(request: Request) -> JSONResponse:
     - Only the user who owns the password can provision it
     - Rate limited to prevent brute-force attacks
     """
-    from nextcloud_mcp_server.config import get_settings
-
     # Get user_id from path
     path_user_id = request.path_params.get("user_id")
     if not path_user_id:
@@ -364,8 +358,6 @@ async def delete_app_password(request: Request) -> JSONResponse:
 
     Requires BasicAuth with the user's credentials.
     """
-    from nextcloud_mcp_server.config import get_settings
-
     # Get user_id from path
     path_user_id = request.path_params.get("user_id")
     if not path_user_id:

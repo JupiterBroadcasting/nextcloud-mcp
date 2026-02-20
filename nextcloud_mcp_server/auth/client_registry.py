@@ -10,6 +10,7 @@ import logging
 import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
@@ -161,8 +162,6 @@ class ClientRegistry:
             True if valid, False otherwise
         """
         # Parse the redirect URI
-        from urllib.parse import urlparse
-
         parsed = urlparse(redirect_uri)
 
         # Check against registered patterns
