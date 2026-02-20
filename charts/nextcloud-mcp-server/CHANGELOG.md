@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable resource limits
 - Grafana dashboard annotations
 
+## nextcloud-mcp-server-0.57.70 (2026-02-20)
+
+### Fix
+
+- address PR #571 review comments
+- resolve stale credentials causing astrolabe background sync test failures
+
+### Refactor
+
+- enforce PLC0415 (import-outside-top-level) for source code
+
 ## nextcloud-mcp-server-0.57.69 (2026-02-20)
 
 ## nextcloud-mcp-server-0.57.68 (2026-02-19)
