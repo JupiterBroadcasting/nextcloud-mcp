@@ -5,6 +5,17 @@ All notable changes to the Nextcloud MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [PEP 440](https://peps.python.org/pep-0440/).
 
+## v0.64.2 (2026-02-20)
+
+### Fix
+
+- address PR #571 review comments
+- resolve stale credentials causing astrolabe background sync test failures
+
+### Refactor
+
+- enforce PLC0415 (import-outside-top-level) for source code
+
 ## v0.64.1 (2026-02-18)
 
 ### Fix
