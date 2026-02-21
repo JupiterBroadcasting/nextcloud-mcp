@@ -60,22 +60,20 @@
           cfg = config.services.nextcloud-mcp-server;
         in
         {
-          options.services.nextcloud-mcp-server = {
-            enable = lib.mkEnableOption "Nextcloud MCP server";
+            options.services.nextcloud-mcp-server = {
+              enable = lib.mkEnableOption "Nextcloud MCP Server";
+              user = lib.mkOption {
+                type = lib.types.str;
+                default = "nextcloud-mcp-server";
+                description = "User account under which the service runs.";
+              };
+              group = lib.mkOption {
+                type = lib.types.str;
+                default = "nextcloud-mcp-server";
+                description = "Group under which the service runs.";
+              };
+              host = lib.mkOption {
 
-            workingDirectory = lib.mkOption {
-              type = lib.types.str;
-              default = "/var/lib/nextcloud-mcp-server";
-              description = "Working directory containing the nextcloud-mcp-server source tree.";
-            };
-
-            environmentFile = lib.mkOption {
-              type = lib.types.nullOr lib.types.str;
-              default = null;
-              description = "Path to env file with NEXTCLOUD_* settings.";
-            };
-
-            host = lib.mkOption {
               type = lib.types.str;
               default = "127.0.0.1";
               description = "Host interface for the MCP HTTP server.";
@@ -107,6 +105,16 @@
           };
 
           config = lib.mkIf cfg.enable {
+            users.users = lib.optionalAttrs (cfg.user == "nextcloud-mcp-server") {
+              nextcloud-mcp-server = {
+                group = cfg.group;
+                isSystemUser = true;
+              };
+            };
+            users.groups = lib.optionalAttrs (cfg.group == "nextcloud-mcp-server") {
+              nextcloud-mcp-server = { };
+            };
+
             systemd.services.nextcloud-mcp-server = {
               description = "Nextcloud MCP Server";
               wantedBy = [ "multi-user.target" ];
@@ -142,7 +150,8 @@
                   Type = "simple";
                   Restart = "always";
                   RestartSec = 5;
-                  DynamicUser = true;
+                  User = cfg.user;
+                  Group = cfg.group;
                   StateDirectory = "nextcloud-mcp-server";
                   WorkingDirectory = toString cfg.workingDirectory;
                   ExecStart = ''
@@ -154,18 +163,6 @@
                       --host ${cfg.host} \
                       --port ${toString cfg.port}
                   '';
-                  NoNewPrivileges = true;
-                  PrivateTmp = true;
-                  ProtectSystem = "full";
-                  ProtectHome = false; # Allow access to source code in home
-                  ReadWritePaths = [ "/var/lib/nextcloud-mcp-server" ];
-
-                  # Required tools for uv and git dependencies
-                  path = [ pkgs.git pkgs.gcc ];
-
-                  # Enable network access for uv to fetch dependencies
-                  PrivateNetwork = false;
-                  RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
                 }
                 // lib.optionalAttrs (cfg.environmentFile != null) {
                   EnvironmentFile = cfg.environmentFile;
