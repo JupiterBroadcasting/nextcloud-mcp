@@ -55,7 +55,7 @@
       }))
     //
     {
-      nixosModules.default = { config, lib, pkgs, ... }:
+      nixosModules.default = { self, config, lib, pkgs, ... }:
         let
           cfg = config.services.nextcloud-mcp-server;
         in
@@ -74,8 +74,8 @@
               };
               workingDirectory = lib.mkOption {
                 type = lib.types.path;
-                default = "/var/lib/nextcloud-mcp-server";
-                description = "Path to the cloned repository or source directory.";
+                default = self.outPath;
+                description = "Path to the source directory.";
               };
               environmentFile = lib.mkOption {
                 type = lib.types.nullOr lib.types.path;
