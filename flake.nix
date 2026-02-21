@@ -130,29 +130,11 @@
               after = [ "network-online.target" ];
               wants = [ "network-online.target" ];
 
-              environment = cfg.extraEnvironment // {
-                # Core: Use nixpkgs Python, allow caching in StateDirectory
-                UV_SYSTEM_PYTHON = "1";
-                UV_NO_MANAGED_PYTHON = "1";
-                UV_PYTHON = "${pkgs.python312}/bin/python3";
-                UV_CACHE_DIR = "/var/lib/nextcloud-mcp-server/.cache/uv";
-                UV_LINK_MODE = "copy"; # Avoid hardlink issues in sandbox
-
-                # Required for module discovery and persistent venv
-                PYTHONPATH = cfg.workingDirectory;
-                UV_PROJECT_ENVIRONMENT = "/var/lib/nextcloud-mcp-server/.venv";
-
-                # Required when DynamicUser - HOME not set automatically
-                HOME = "/var/lib/nextcloud-mcp-server";
-
-                # XDG directories for uv data (inside StateDirectory)
-                XDG_CACHE_HOME = "/var/lib/nextcloud-mcp-server/.cache";
-                XDG_DATA_HOME = "/var/lib/nextcloud-mcp-server/.local/share";
-
-                # App-specific settings
-                TOKEN_STORAGE_DB = "/var/lib/nextcloud-mcp-server/tokens.db";
-                METRICS_PORT = toString cfg.metricsPort;
-              };
+              preStart = ''
+                # Ensure the state directory exists and is owned by the service user
+                ${pkgs.coreutils}/bin/mkdir -p /var/lib/nextcloud-mcp-server
+                ${pkgs.coreutils}/bin/chown -R ${cfg.user}:${cfg.group} /var/lib/nextcloud-mcp-server
+              '';
 
               serviceConfig =
                 {
@@ -161,8 +143,10 @@
                   RestartSec = 5;
                   User = cfg.user;
                   Group = cfg.group;
+                  PermissionsStartOnly = true; # Allow preStart to run as root for chown
                   StateDirectory = "nextcloud-mcp-server";
                   WorkingDirectory = toString cfg.workingDirectory;
+
                   ExecStart = ''
                     ${pkgs.uv}/bin/uv run \
                       --project ${cfg.workingDirectory} \
