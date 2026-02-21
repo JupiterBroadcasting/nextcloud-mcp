@@ -96,6 +96,20 @@
               wants = [ "network-online.target" ];
 
               environment = cfg.extraEnvironment // {
+                # Core: Use nixpkgs Python, no managed binaries or caching
+                UV_SYSTEM_PYTHON = "1";
+                UV_NO_CACHE = "1";
+                UV_NO_MANAGED_PYTHON = "1";
+                UV_PYTHON = "${pkgs.python312}/bin/python3";
+
+                # Required when DynamicUser - HOME not set automatically
+                HOME = "/var/lib/nextcloud-mcp-server";
+
+                # XDG directories for uv data (inside StateDirectory)
+                XDG_CACHE_HOME = "/var/lib/nextcloud-mcp-server/.cache";
+                XDG_DATA_HOME = "/var/lib/nextcloud-mcp-server/.local/share";
+
+                # App-specific settings
                 TOKEN_STORAGE_DB = "/var/lib/nextcloud-mcp-server/tokens.db";
                 METRICS_PORT = toString cfg.metricsPort;
               };
@@ -109,7 +123,10 @@
                   StateDirectory = "nextcloud-mcp-server";
                   WorkingDirectory = toString cfg.workingDirectory;
                   ExecStart = ''
-                    ${pkgs.uv}/bin/uv run nextcloud-mcp-server run \
+                    ${pkgs.uv}/bin/uv run \
+                      --python ${pkgs.python312}/bin/python3 \
+                      --no-cache \
+                      nextcloud-mcp-server run \
                       --transport ${cfg.transport} \
                       --host ${cfg.host} \
                       --port ${toString cfg.port}
