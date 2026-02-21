@@ -144,7 +144,7 @@
                   ExecStart = ''
                     ${pkgs.uv}/bin/uv run \
                       --python ${pkgs.python312}/bin/python3 \
-                      nextcloud-mcp-server run \
+                      python -m nextcloud_mcp_server.cli run \
                       --transport ${cfg.transport} \
                       --host ${cfg.host} \
                       --port ${toString cfg.port}
