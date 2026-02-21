@@ -72,17 +72,20 @@
                 default = "nextcloud-mcp-server";
                 description = "Group under which the service runs.";
               };
+              workingDirectory = lib.mkOption {
+                type = lib.types.path;
+                description = "Path to the cloned repository or source directory.";
+              };
               environmentFile = lib.mkOption {
                 type = lib.types.nullOr lib.types.path;
                 default = null;
                 description = "File containing environment variables for the service.";
               };
               host = lib.mkOption {
-
-              type = lib.types.str;
-              default = "127.0.0.1";
-              description = "Host interface for the MCP HTTP server.";
-            };
+                type = lib.types.str;
+                default = "127.0.0.1";
+                description = "Host interface for the MCP HTTP server.";
+              };
 
             port = lib.mkOption {
               type = lib.types.port;
