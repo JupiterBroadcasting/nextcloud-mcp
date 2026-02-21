@@ -136,6 +136,30 @@
                 ${pkgs.coreutils}/bin/chown -R ${cfg.user}:${cfg.group} /var/lib/nextcloud-mcp-server
               '';
 
+              environment = cfg.extraEnvironment // {
+                # Core: Use nixpkgs Python, allow caching in StateDirectory
+                UV_SYSTEM_PYTHON = "1";
+                UV_NO_MANAGED_PYTHON = "1";
+                UV_PYTHON = "${pkgs.python312}/bin/python3";
+                UV_CACHE_DIR = "/var/lib/nextcloud-mcp-server/uv-cache";
+                UV_LINK_MODE = "copy"; # Avoid hardlink issues in sandbox
+
+                # Required for module discovery and persistent venv
+                PYTHONPATH = cfg.workingDirectory;
+                UV_PROJECT_ENVIRONMENT = "/var/lib/nextcloud-mcp-server/venv";
+
+                # Required when DynamicUser - HOME not set automatically
+                HOME = "/var/lib/nextcloud-mcp-server";
+
+                # XDG directories for uv data (inside StateDirectory)
+                XDG_CACHE_HOME = "/var/lib/nextcloud-mcp-server/cache";
+                XDG_DATA_HOME = "/var/lib/nextcloud-mcp-server/data";
+
+                # App-specific settings
+                TOKEN_STORAGE_DB = "/var/lib/nextcloud-mcp-server/tokens.db";
+                METRICS_PORT = toString cfg.metricsPort;
+              };
+
               serviceConfig =
                 {
                   Type = "simple";
@@ -149,6 +173,7 @@
 
                   ExecStart = ''
                     ${pkgs.uv}/bin/uv run \
+                      --cache-dir /var/lib/nextcloud-mcp-server/uv-cache \
                       --project ${cfg.workingDirectory} \
                       --python ${pkgs.python312}/bin/python3 \
                       python -m nextcloud_mcp_server.cli run \
