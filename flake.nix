@@ -74,6 +74,7 @@
               };
               workingDirectory = lib.mkOption {
                 type = lib.types.path;
+                default = "/var/lib/nextcloud-mcp-server";
                 description = "Path to the cloned repository or source directory.";
               };
               environmentFile = lib.mkOption {
