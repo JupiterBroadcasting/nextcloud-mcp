@@ -167,6 +167,16 @@
                 // lib.optionalAttrs (cfg.environmentFile != null) {
                   EnvironmentFile = cfg.environmentFile;
                 };
+
+              path = with pkgs; [
+                git
+                gcc
+                gnumake
+                binutils
+                stdenv.cc.libc
+              ];
+            };
+
             };
           };
         };
