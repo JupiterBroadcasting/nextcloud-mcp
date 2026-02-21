@@ -67,7 +67,9 @@
           cfg = config.services.nextcloud-mcp-server;
         in
         {
-            options.services.nextcloud-mcp-server = {              user = lib.mkOption {
+            options.services.nextcloud-mcp-server = {
+              enable = lib.mkEnableOption "Nextcloud MCP Server";
+              user = lib.mkOption {
                 type = lib.types.str;
                 default = "nextcloud-mcp-server";
                 description = "User account under which the service runs.";
