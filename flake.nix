@@ -96,11 +96,12 @@
               wants = [ "network-online.target" ];
 
               environment = cfg.extraEnvironment // {
-                # Core: Use nixpkgs Python, no managed binaries or caching
+                # Core: Use nixpkgs Python, allow caching in StateDirectory
                 UV_SYSTEM_PYTHON = "1";
-                UV_NO_CACHE = "1";
                 UV_NO_MANAGED_PYTHON = "1";
                 UV_PYTHON = "${pkgs.python312}/bin/python3";
+                UV_CACHE_DIR = "/var/lib/nextcloud-mcp-server/.cache/uv";
+                UV_LINK_MODE = "copy"; # Avoid hardlink issues in sandbox
 
                 # Required when DynamicUser - HOME not set automatically
                 HOME = "/var/lib/nextcloud-mcp-server";
@@ -125,7 +126,6 @@
                   ExecStart = ''
                     ${pkgs.uv}/bin/uv run \
                       --python ${pkgs.python312}/bin/python3 \
-                      --no-cache \
                       nextcloud-mcp-server run \
                       --transport ${cfg.transport} \
                       --host ${cfg.host} \
