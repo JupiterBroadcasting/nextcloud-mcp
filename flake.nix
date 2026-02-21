@@ -48,6 +48,10 @@
             exec ${pkgs.uv}/bin/uv run nextcloud-mcp-server run "$@"
           '');
         };
+
+        packages.default = pkgs.writeShellScriptBin "nextcloud-mcp-server" ''
+          exec ${pkgs.uv}/bin/uv run nextcloud-mcp-server run "$@"
+        '';
       }))
     //
     {
