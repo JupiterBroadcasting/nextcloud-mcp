@@ -36,6 +36,7 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-grpc>=1.28.2", # OTLP gRPC exporter
     "python-json-logger>=3.2.0", # Structured JSON logging
     "jinja2>=3.1.6",
+    "websockets>=14.0", # WebSocket support for uvicorn
     "langchain-text-splitters>=1.0.0",
     "markdownify>=0.14.1",  # HTML to Markdown conversion for News items
     "pymupdf>=1.26.6",
