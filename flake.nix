@@ -72,6 +72,11 @@
                 default = "nextcloud-mcp-server";
                 description = "Group under which the service runs.";
               };
+              environmentFile = lib.mkOption {
+                type = lib.types.nullOr lib.types.path;
+                default = null;
+                description = "File containing environment variables for the service.";
+              };
               host = lib.mkOption {
 
               type = lib.types.str;
