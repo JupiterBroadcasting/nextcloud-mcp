@@ -143,6 +143,7 @@
                   WorkingDirectory = toString cfg.workingDirectory;
                   ExecStart = ''
                     ${pkgs.uv}/bin/uv run \
+                      --project ${cfg.workingDirectory} \
                       --python ${pkgs.python312}/bin/python3 \
                       python -m nextcloud_mcp_server.cli run \
                       --transport ${cfg.transport} \
