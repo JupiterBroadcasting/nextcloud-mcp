@@ -156,8 +156,8 @@
                   '';
                   NoNewPrivileges = true;
                   PrivateTmp = true;
-                  ProtectSystem = "strict";
-                  ProtectHome = true;
+                  ProtectSystem = "full";
+                  ProtectHome = false; # Allow access to source code in home
                   ReadWritePaths = [ "/var/lib/nextcloud-mcp-server" ];
 
                   # Required tools for uv and git dependencies
