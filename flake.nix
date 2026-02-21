@@ -121,6 +121,10 @@
                 UV_CACHE_DIR = "/var/lib/nextcloud-mcp-server/.cache/uv";
                 UV_LINK_MODE = "copy"; # Avoid hardlink issues in sandbox
 
+                # Required for module discovery and persistent venv
+                PYTHONPATH = cfg.workingDirectory;
+                UV_PROJECT_ENVIRONMENT = "/var/lib/nextcloud-mcp-server/.venv";
+
                 # Required when DynamicUser - HOME not set automatically
                 HOME = "/var/lib/nextcloud-mcp-server";
 
@@ -155,6 +159,9 @@
                   ProtectSystem = "strict";
                   ProtectHome = true;
                   ReadWritePaths = [ "/var/lib/nextcloud-mcp-server" ];
+
+                  # Required tools for uv and git dependencies
+                  path = [ pkgs.git pkgs.gcc ];
 
                   # Enable network access for uv to fetch dependencies
                   PrivateNetwork = false;
