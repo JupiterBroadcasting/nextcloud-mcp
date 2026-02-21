@@ -21,6 +21,9 @@
   };
 
   outputs = { self, nixpkgs, flake-utils, ... }:
+    let
+      lib = nixpkgs.lib;
+    in
     (flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
@@ -55,14 +58,16 @@
       }))
     //
     {
-      nixosModules.default = { self, config, lib, pkgs, ... }:
+      nixosModules.default =
+        let
+          flakeSelf = self;
+        in
+        { config, lib, pkgs, ... }:
         let
           cfg = config.services.nextcloud-mcp-server;
         in
         {
-            options.services.nextcloud-mcp-server = {
-              enable = lib.mkEnableOption "Nextcloud MCP Server";
-              user = lib.mkOption {
+            options.services.nextcloud-mcp-server = {              user = lib.mkOption {
                 type = lib.types.str;
                 default = "nextcloud-mcp-server";
                 description = "User account under which the service runs.";
@@ -74,7 +79,7 @@
               };
               workingDirectory = lib.mkOption {
                 type = lib.types.path;
-                default = self.outPath;
+                default = flakeSelf.outPath;
                 description = "Path to the source directory.";
               };
               environmentFile = lib.mkOption {
