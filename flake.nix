@@ -165,6 +165,9 @@
                 # App-specific settings
                 TOKEN_STORAGE_DB = "/var/lib/nextcloud-mcp-server/tokens.db";
                 METRICS_PORT = toString cfg.metricsPort;
+
+                # Fix missing C++ standard library for grpcio/opentelemetry
+                LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.zlib ];
               };
 
               serviceConfig =
