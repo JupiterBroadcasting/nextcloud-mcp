@@ -20,42 +20,12 @@
     };
   };
 
-  outputs = { self, nixpkgs, flake-utils, pyproject-nix, uv2nix, pyproject-build-systems }:
+  outputs = { self, nixpkgs, flake-utils, ... }:
     (flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { inherit system; };
-
-        # Load workspace
-        workspace = uv2nix.lib.workspace.loadWorkspace { workspaceRoot = ./.; };
-
-        # Create overlay
-        overlay = workspace.mkPyprojectOverlay {
-          sourcePreference = "wheel";
-        };
-
-        # Construct Python set
-        pythonSet = (pkgs.callPackage pyproject-nix.build.packages {
-          python = pkgs.python312;
-        }).overrideScope (
-          nixpkgs.lib.composeManyExtensions [
-            pyproject-build-systems.overlays.default
-            overlay
-            (final: prev: {
-              # Add any necessary overrides for tricky packages here
-              # For example, if a package needs specific system libraries:
-              # some-package = prev.some-package.overridePythonAttrs (old: {
-              #   buildInputs = (old.buildInputs or []) ++ [ pkgs.some-lib ];
-              # });
-            })
-          ]
-        );
-
-        # Build the application
-        nextcloud-mcp-server-pkg = pythonSet.mkVirtualEnv "nextcloud-mcp-server-env" workspace.deps.default;
       in
       {
-        packages.default = nextcloud-mcp-server-pkg;
-
         devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             python312
@@ -63,7 +33,6 @@
             ruff
             ty
             podman
-            nextcloud-mcp-server-pkg
           ];
 
           shellHook = ''
@@ -74,7 +43,10 @@
 
         apps.default = {
           type = "app";
-          program = "${nextcloud-mcp-server-pkg}/bin/nextcloud-mcp-server";
+          program = toString (pkgs.writeShellScript "run-nextcloud-mcp-server" ''
+            set -euo pipefail
+            exec ${pkgs.uv}/bin/uv run nextcloud-mcp-server run "$@"
+          '');
         };
       }))
     //
@@ -138,8 +110,21 @@
               wants = [ "network-online.target" ];
 
               environment = cfg.extraEnvironment // {
-                # Required for DynamicUser state/cache paths if app expects them
+                # Core: Use nixpkgs Python, allow caching in StateDirectory
+                UV_SYSTEM_PYTHON = "1";
+                UV_NO_MANAGED_PYTHON = "1";
+                UV_PYTHON = "${pkgs.python312}/bin/python3";
+                UV_CACHE_DIR = "/var/lib/nextcloud-mcp-server/.cache/uv";
+                UV_LINK_MODE = "copy"; # Avoid hardlink issues in sandbox
+
+                # Required when DynamicUser - HOME not set automatically
                 HOME = "/var/lib/nextcloud-mcp-server";
+
+                # XDG directories for uv data (inside StateDirectory)
+                XDG_CACHE_HOME = "/var/lib/nextcloud-mcp-server/.cache";
+                XDG_DATA_HOME = "/var/lib/nextcloud-mcp-server/.local/share";
+
+                # App-specific settings
                 TOKEN_STORAGE_DB = "/var/lib/nextcloud-mcp-server/tokens.db";
                 METRICS_PORT = toString cfg.metricsPort;
               };
@@ -153,7 +138,9 @@
                   StateDirectory = "nextcloud-mcp-server";
                   WorkingDirectory = toString cfg.workingDirectory;
                   ExecStart = ''
-                    ${self.packages.${pkgs.system}.default}/bin/nextcloud-mcp-server run \
+                    ${pkgs.uv}/bin/uv run \
+                      --python ${pkgs.python312}/bin/python3 \
+                      nextcloud-mcp-server run \
                       --transport ${cfg.transport} \
                       --host ${cfg.host} \
                       --port ${toString cfg.port}
@@ -163,6 +150,10 @@
                   ProtectSystem = "strict";
                   ProtectHome = true;
                   ReadWritePaths = [ "/var/lib/nextcloud-mcp-server" ];
+
+                  # Enable network access for uv to fetch dependencies
+                  PrivateNetwork = false;
+                  RestrictAddressFamilies = [ "AF_INET" "AF_INET6" "AF_UNIX" ];
                 }
                 // lib.optionalAttrs (cfg.environmentFile != null) {
                   EnvironmentFile = cfg.environmentFile;
