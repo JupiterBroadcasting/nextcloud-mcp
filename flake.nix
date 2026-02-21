@@ -183,6 +183,7 @@
 
                   ExecStart = ''
                     ${pkgs.uv}/bin/uv run \
+                      --no-write-lockfile \
                       --cache-dir /var/lib/nextcloud-mcp-server/uv-cache \
                       --project ${cfg.workingDirectory} \
                       --python ${pkgs.python312}/bin/python3 \
